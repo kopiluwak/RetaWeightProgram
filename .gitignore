@@ -26,3 +26,6 @@ npm-debug.*
 # Build artifacts
 *.tar
 *.ipa
+._*
+.DS_Store
+backend/.venv/

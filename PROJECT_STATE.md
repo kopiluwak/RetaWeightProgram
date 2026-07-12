@@ -1,7 +1,7 @@
 # WeightProgram — Project State (handoff)
 
 One-page onboarding for a new thread. Read this + `OPERATIONS_RUNBOOK.md` before working.
-Last updated: 2026-07-02.
+Last updated: 2026-07-04.
 
 ## What it is
 A mobile app that photographs a user's weights/equipment, uses a vision LLM to
@@ -38,11 +38,47 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   audible beep + haptic, double-progression suggestions, history.
 - **TestFlight:** Build 3 live to internal testers; Build 2 external group in Beta App Review.
   Reviewer login bypass: `reviewer@glpsteel.com` / code `027858` (env vars REVIEW_EMAIL/REVIEW_CODE).
+- **UI system (2026-07-04):** Full visual rework, no new dependencies. `mobile/src/theme.ts`
+  (light/dark palettes, spacing, radius, typography via `useTheme()`) + `mobile/src/ui/` kit
+  (Button, Card, Badge, Chip, ProgressBar, SetDots, Stepper, ScreenBackground). Every screen
+  now uses these — reuse them for any new screen instead of inline hex colors. `WorkoutScreen`
+  specifically: "NOW LOGGING" banner + per-exercise `SetDots`/`Badge` show which set the user
+  is on at a glance; `Stepper` (tap +/- with press-and-hold, or type directly) replaces plain
+  text fields for weight/reps/RIR; rest timer got an animated progress bar. Not yet in a shipped
+  TestFlight build — bump `ios.buildNumber` and run the EAS build steps in the runbook to ship it.
+
+- **Analytics module (2026-07-06, not yet deployed/shipped):** server-side `/analytics/*`
+  (summary, exercises, exercises/{name}, history) computed in `backend/app/analytics.py`
+  (RIR-adjusted Epley e1RM capped at 12 effective reps; PRs need ≥3 prior sessions; 4-condition
+  plateau gate; 90d linear-regression PR projection gated to a 12-week horizon). App side:
+  `ProgressScreen` (5 reorderable cards, order in SecureStore), `ExerciseTrendsScreen`
+  (range selector 30d–All), `HistoryScreen` (26-week heatmap + filterable log), PR share-card
+  image via view-shot. Charts hand-rolled in `mobile/src/ui/charts/` on react-native-svg.
+  **Three new native deps** (`react-native-svg@15.12.1`, `react-native-view-shot@4.0.3`,
+  `react-native-safe-area-context@~5.6.0` — the last replaces RN core's deprecated
+  SafeAreaView in `ScreenBackground`; `SafeAreaProvider` now wraps the app root) —
+  run `npm install` in `mobile/` before the next build; all are Expo SDK 54-pinned versions.
+
+- **Neutron nutrition module (2026-07-07, not yet deployed/shipped):** see `NEUTRON_SPEC.md`.
+  Protein profile (1 g/kg auto target + bodyweight logging), "Scan My Kitchen"
+  (pantry/fridge photos → Bedrock forced-tool food list → user-confirmed pantry; photos
+  never stored), recipe generation + vegan/vegetarian adapt + Surprise-Me day plan
+  (Bedrock text Converse, hard dietary constraints incl. Alpha-Gal), protein logging with
+  streaks/badges/levels/muscle-score (`neutron_gamification.py`, unit-tested), curated
+  Protein Boosters marketplace (placeholder affiliate links + disclosure). Backend:
+  `neutron_vision.py`, `neutron_recipes.py`, `neutron_gamification.py`,
+  `routers/nutrition.py`, 6 new tables in `models.py` (auto-created on boot). Mobile: 6 new
+  screens (NutritionHome/Setup, KitchenScan, Recipes, ProteinTracker, ProteinBoosters),
+  `NutritionApi` in `api.ts`, Home "SOON" teaser card replaced with the live entrance.
+  No new mobile dependencies. `tsc --noEmit` clean.
 
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` · `/habits*` ·
 `/inventory` (capture, {id}/confirm, edit) · `/programs` (generate, current, {id}) ·
-`/workouts` (start, {id}/log, {id}/finish, history, last-performance) · `/health` · `/privacy` · `/support`
+`/workouts` (start, {id}/log, {id}/finish, history, last-performance) ·
+`/analytics` (summary, exercises, exercises/{name}, history) ·
+`/nutrition` (profile, weight, pantry/scan, pantry, recipes/{generate,adapt,surprise,saved},
+log, summary, marketplace) · `/health` · `/privacy` · `/support`
 
 ## Known pending items (open)
 1. Backend still has diagnostic `_log.warning` lines in `recognition.py` — remove before launch.

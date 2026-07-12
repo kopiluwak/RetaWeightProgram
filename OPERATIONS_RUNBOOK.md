@@ -10,6 +10,7 @@ learned the hard way. Account `453371324700`, region `us-east-1`.
 - **ECR repo:** `453371324700.dkr.ecr.us-east-1.amazonaws.com/weightprogram-api`
 - **RDS:** `weightprogram-db...rds.amazonaws.com` (Postgres 18, db `postgres`, user `wpadmin`)
 - **S3 captures:** `s3://weightprogram-captures`
+- **Marketing site:** https://glpsteel.com — `s3://glpsteel-website` + CloudFront (see section F)
 - **Log group:** `/aws/ecs/default/weightprogram-api-1257-e9c6`
 - **Local build copy:** `~/wp-backend-build` (NOT the exFAT project drive — see gotcha #1)
 
@@ -43,10 +44,56 @@ Then in the console:
    - EC2 → Target Groups → open both `ecs-gateway-tg-*` → whichever **Targets** tab shows a **healthy** target is the live one.
    - EC2 → Load Balancers → gateway ALB → Listeners → HTTPS:443 → Manage rules → the `api.glpsteel.com` rule → set that healthy target group's weight to **100%**, the other **0%**.
 7. Verify: `curl https://api.glpsteel.com/health` → `{"status":"ok","environment":"production"}`.
+8. **First deploy with Neutron (nutrition module):** the 6 new tables
+   (`nutrition_profiles`, `weight_logs`, `pantry_items`, `saved_recipes`,
+   `protein_logs`, `nutrition_badges`) are created automatically by
+   `init_models` on boot — no manual DB step. Smoke-test with an authed token:
+   `GET /nutrition/marketplace` (static data, exercises the router) and
+   `GET /nutrition/profile` (exercises the new tables).
 
 ---
 
-## B. App build → TestFlight
+## B. Local test on the iOS simulator (do this BEFORE every TestFlight push)
+
+The Xcode simulator is set up and working (confirmed 2026-07-06). Never push a build to
+Apple that hasn't booted on the simulator first — EAS + review round-trips are too slow
+to use as a smoke test.
+
+```bash
+cd "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram/mobile"
+
+# 1. Deps in sync (mandatory after any package.json change, e.g. the analytics
+#    deps react-native-svg / react-native-view-shot):
+npm install
+
+# 2. Typecheck — cheapest possible catch:
+npx tsc --noEmit
+
+# 3. Build + launch on the simulator. The app has custom NATIVE deps (Skia, svg,
+#    view-shot), so Expo Go can NOT run it — use a dev build:
+npx expo run:ios          # first run / after any native-dep change (slow: full Xcode build)
+npx expo start            # subsequent JS-only changes: reuse the installed dev build
+```
+
+- **Backend target:** `src/config.ts` points at production (`https://api.glpsteel.com`) —
+  fine for UI testing against real data. To test *backend* changes locally instead, run
+  `uvicorn app.main:app --reload` in `backend/` and switch `config.ts` to the localhost
+  line (simulator reaches the Mac's localhost directly). **Switch it back before building.**
+- **Login without email round-trips:** the reviewer bypass works on the simulator —
+  `reviewer@glpsteel.com` / code `027858`.
+- **What to check before pushing:** app boots, every screen you touched renders in BOTH
+  light and dark mode, and (if native deps changed) the affected views actually draw —
+  the Skia blank-screen incident (gotcha #9) is exactly the failure class the simulator
+  catches that typecheck can't.
+- **If the native build fails with `._*` / permission weirdness:** that's the exFAT drive
+  again (gotcha #1's sibling). Mirror the backend trick — rsync `mobile/` to an
+  internal-disk copy and run `npx expo run:ios` from there.
+
+Only when the simulator pass is clean, proceed to section C.
+
+---
+
+## C. App build → TestFlight
 
 ```bash
 cd "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram/mobile"
@@ -60,7 +107,7 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
 
 ---
 
-## C. Gotchas we actually hit (read before deploying)
+## D. Gotchas we actually hit (read before deploying)
 
 1. **Build from `~/wp-backend-build`, never the exFAT drive.** `/Volumes/2T_Media` is exFAT;
    macOS `._*` AppleDouble files break `docker build` (`operation not permitted`). Always
@@ -94,6 +141,16 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
    - The app must send **JPEG** (iOS shoots HEIC, which Bedrock can't read) — `CaptureScreen`
      re-encodes via `expo-image-manipulator`.
    - `BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-6` (inference-profile id, not bare model id).
+   - **Neutron reuses all of the above:** the pantry scanner (`neutron_vision.py`) has the
+     same 4-image cap and JPEG requirement (KitchenScanScreen re-encodes like CaptureScreen).
+     The recipe engine (`neutron_recipes.py`) is **text-only** Converse on the same model id —
+     no extra Bedrock access needed. **Both Neutron Bedrock paths enforce a maxTokens floor of
+     4096** (pantry scans return 20-40 items, recipes are long; below that the forced tool call
+     truncates mid-JSON and parses to 0 items — symptom: scan "finds nothing" / recipes 502).
+     An empty pantry parse logs `pantry scan parsed 0 items: stopReason=...` — check with the
+     log-tail command in gotcha #8. Recipes run at temperature 0.7 (variety), vision stays at 0.
+   - **Local dev without AWS:** `VISION_PROVIDER=stub` also selects the stub pantry scanner and
+     stub recipe engine, so the whole scan → recipes → log flow works offline.
 
 7. **Reviewer bypass (App Store review):** env vars `REVIEW_EMAIL` + `REVIEW_CODE` on the ECS
    service enable a fixed-code login for `reviewer@glpsteel.com`. **Remove/rotate before public
@@ -105,9 +162,16 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
    ```
    The console "Logs" tab truncates long tracebacks; the CLI shows the real final line.
 
+9. **Skia renders blank on-device.** `@shopify/react-native-skia` drew nothing (blank white
+   screen) on iPhone 16 / iOS 26 and was backed out of `ScreenBackground`; never root-caused.
+   It's still in `package.json` but must be treated as quarantined — don't build UI on it.
+   Charts and the PR share card deliberately use `react-native-svg` + `react-native-view-shot`
+   instead. Any new drawing/canvas work: same substrate, and verify on the simulator (section B)
+   before pushing.
+
 ---
 
-## D. Pre-public-launch checklist (open items)
+## E. Pre-public-launch checklist (open items)
 - [ ] Re-enable DB TLS (SSL context in `database.py`; revert `rds.force_ssl`).
 - [ ] Remove/rotate the reviewer bypass env vars.
 - [ ] Remove diagnostic `_log.warning` lines from `recognition.py`.
@@ -115,3 +179,32 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
       dedicated ALB) so the blue/green re-point step goes away.
 - [ ] Move DB schema to Alembic migrations (currently `init_models` create_all on boot).
 - [ ] App: clear/cap photos in `CaptureScreen`; add keyboard-avoidance in `WorkoutScreen`.
+- [ ] Neutron: swap the marketplace placeholder URLs in `routers/nutrition.py`
+      (`_MARKETPLACE`) for real affiliate links and re-check the disclosure copy;
+      re-verify product prices/protein before launch.
+- [ ] Neutron: privacy policy in `main.py` mentions equipment photos only — add a line
+      covering kitchen-scan photos (processed for recognition, never stored) before launch.
+- [ ] Website: replace placeholders before launch — store links (`href="#"`), fake
+      ratings/press bar, placeholder testimonials, `og:image`. Full list in
+      `website/WEBSITE_BRIEF.md`. Don't publish while nutrition scan is unshipped.
+
+---
+
+## F. Marketing website deploy (glpsteel.com)
+
+Source: `website/index.html` (single self-contained file). Hosted on S3 + CloudFront,
+DNS via the existing Route 53 zone (apex + `www` alias A records → CloudFront).
+
+```bash
+# Update the live site after editing website/index.html:
+aws s3 cp "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram/website/index.html" \
+  s3://glpsteel-website/index.html --content-type text/html
+aws cloudfront create-invalidation --distribution-id DIST_ID_HERE --paths "/*"
+```
+
+- **Fill in `DIST_ID_HERE`** once: CloudFront console → the glpsteel.com distribution → ID
+  (starts with `E`), then replace the placeholder in this file.
+- The invalidation is required — CloudFront caches `index.html`, so without it edits can
+  take up to 24h to appear. Invalidations take ~1–2 min; first 1,000 paths/month are free.
+- Bucket is private (CloudFront OAC); don't add a public bucket policy.
+- ACM cert for glpsteel.com/www lives in us-east-1 (required by CloudFront).

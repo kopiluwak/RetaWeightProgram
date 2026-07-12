@@ -9,7 +9,7 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .database import init_models
-from .routers import auth, inventory, onboarding, programs, workouts
+from .routers import analytics, auth, inventory, nutrition, onboarding, programs, workouts
 
 logging.basicConfig(level=logging.INFO)
 settings = get_settings()
@@ -28,6 +28,8 @@ app.include_router(onboarding.router)
 app.include_router(inventory.router)
 app.include_router(programs.router)
 app.include_router(workouts.router)
+app.include_router(analytics.router)
+app.include_router(nutrition.router)
 
 
 @app.get("/health", tags=["meta"])

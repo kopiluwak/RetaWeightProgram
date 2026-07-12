@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GLP Steel — Keep the Muscle. Lose the Weight. | Strength Training for GLP-1 Users</title>
+  <meta name="description" content="On a GLP-1? Snap a photo of your equipment and get a science-backed 3, 4, or 5-day strength program built to preserve muscle in a deficit. Plus high-protein recipes from a photo of your fridge. $15 once. No subscription." />
+  <meta property="og:title" content="GLP Steel — Keep the Muscle. Lose the Weight." />
+  <meta property="og:description" content="The strength & nutrition app built for GLP-1 users. Photograph your equipment, get your program. Photograph your food, get high-protein recipes. $15, once." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://glpsteel.com" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://glpsteel.com" />
+  <script>
+    // Set theme before paint to avoid flash
+    (function () {
+      const stored = localStorage.getItem('theme');
+      const dark = stored ? stored === 'dark' : true; // dark by default
+      document.documentElement.classList.toggle('dark', dark);
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            steel: { 50:'#f7f8fa',100:'#eef0f4',200:'#d9dde5',300:'#b7bfcc',400:'#8f9aae',500:'#6f7b93',600:'#59637a',700:'#485063',800:'#3e4554',900:'#141821',950:'#0b0e14' },
+            ember: { 300:'#ffc861',400:'#ffab2e',500:'#ff8a00',600:'#e06f00' }
+          },
+          fontFamily: { sans: ['ui-sans-serif','system-ui','-apple-system','Segoe UI','Roboto','Helvetica Neue','Arial','sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .text-gradient { @apply bg-gradient-to-r from-ember-400 to-ember-600 bg-clip-text text-transparent; }
+      .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; }
+      .reveal.visible { opacity: 1; transform: none; }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal { opacity: 1; transform: none; transition: none; }
+        html { scroll-behavior: auto; }
+      }
+      details.faq summary::-webkit-details-marker { display: none; }
+      details.faq[open] .chev { transform: rotate(180deg); }
+    }
+  </style>
+</head>
+<body class="bg-white text-steel-900 dark:bg-steel-950 dark:text-steel-100 antialiased selection:bg-ember-500/30">
+
+  <!-- ============ NAV ============ -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-steel-950/80 border-b border-steel-200 dark:border-steel-800/60">
+    <nav class="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between" aria-label="Main">
+      <a href="#top" class="flex items-center gap-2 font-extrabold text-lg tracking-tight">
+        <svg class="w-7 h-7 text-ember-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>
+        </svg>
+        GLP <span class="text-gradient">Steel</span>
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm font-medium text-steel-600 dark:text-steel-300">
+        <a href="#features" class="hover:text-ember-500 transition-colors">Features</a>
+        <a href="#how" class="hover:text-ember-500 transition-colors">How it works</a>
+        <a href="#pricing" class="hover:text-ember-500 transition-colors">Pricing</a>
+        <a href="#faq" class="hover:text-ember-500 transition-colors">FAQ</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="theme-toggle" aria-label="Toggle dark mode" class="p-2 rounded-lg border border-steel-200 dark:border-steel-700 hover:border-ember-500 transition-colors">
+          <svg class="w-5 h-5 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="w-5 h-5 dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
+        <a href="#download" class="hidden sm:inline-flex items-center rounded-lg bg-ember-500 hover:bg-ember-600 text-steel-950 font-semibold text-sm px-4 py-2 transition-colors">Get the app</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+
+    <!-- ============ HERO ============ -->
+    <section class="relative overflow-hidden">
+      <div class="absolute inset-0 bg-gradient-to-b from-ember-500/10 via-transparent to-transparent pointer-events-none" aria-hidden="true"></div>
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 pt-16 pb-20 sm:pt-24 sm:pb-28 grid lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <p class="inline-flex items-center gap-2 rounded-full border border-ember-500/40 bg-ember-500/10 px-3 py-1 text-xs font-semibold text-ember-500 mb-6">
+            <span class="w-1.5 h-1.5 rounded-full bg-ember-500 animate-pulse" aria-hidden="true"></span>
+            Built for GLP-1 &amp; retatrutide users
+          </p>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.05]">
+            Losing weight?<br />
+            <span class="text-gradient">Don't lose the muscle.</span>
+          </h1>
+          <p class="mt-6 text-lg text-steel-600 dark:text-steel-300 max-w-xl">
+            Up to <strong class="text-steel-900 dark:text-white">40% of weight lost on GLP-1 medications can be lean mass</strong>. GLP Steel turns a photo of whatever equipment you own into a science-backed strength program — and a photo of your fridge into high-protein meals — so the weight you lose is fat, not strength.
+          </p>
+          <div id="download" class="mt-8 flex flex-wrap items-center gap-4">
+            <!-- Replace # with real store links at launch -->
+            <a href="#" class="inline-flex items-center gap-3 rounded-xl bg-steel-900 dark:bg-white text-white dark:text-steel-950 px-5 py-3 font-semibold hover:opacity-90 transition-opacity" aria-label="Download on the App Store">
+              <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08ZM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25Z"/></svg>
+              <span class="text-left leading-tight"><span class="block text-[10px] font-normal opacity-80">Download on the</span><span class="block text-base">App Store</span></span>
+            </a>
+            <a href="#" class="inline-flex items-center gap-3 rounded-xl border-2 border-steel-300 dark:border-steel-700 px-5 py-3 font-semibold hover:border-ember-500 transition-colors" aria-label="Get it on Google Play">
+              <svg class="w-6 h-6 text-ember-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 2.5v19l11-9.5L3 2.5Zm13.2 7.6L5.7 1.9l10.6 6.1 2.9 2.5-3 -.4Zm0 3.8 3-.4-2.9 2.5-10.6 6.1 10.5-8.2Z"/></svg>
+              <span class="text-left leading-tight"><span class="block text-[10px] font-normal opacity-80">Get it on</span><span class="block text-base">Google Play</span></span>
+            </a>
+          </div>
+          <p class="mt-4 text-sm text-steel-500 dark:text-steel-400">$15 once. No subscription. No ads. Your photos stay private.</p>
+        </div>
+
+        <!-- Phone mockup -->
+        <div class="relative mx-auto w-full max-w-[320px] reveal" aria-hidden="true">
+          <div class="absolute -inset-8 bg-ember-500/20 blur-3xl rounded-full" aria-hidden="true"></div>
+          <div class="relative rounded-[2.5rem] border-8 border-steel-900 dark:border-steel-800 bg-steel-950 shadow-2xl overflow-hidden">
+            <div class="px-5 pt-8 pb-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-steel-400">TODAY · DAY 2 OF 4</span>
+                <span class="text-xs font-bold text-ember-400">🔥 12-day streak</span>
+              </div>
+              <div class="rounded-2xl bg-steel-900 p-4 border border-steel-800">
+                <p class="text-[10px] font-bold text-ember-500 tracking-widest">NOW LOGGING</p>
+                <p class="text-white font-bold mt-1">Dumbbell Bench Press</p>
+                <p class="text-steel-400 text-xs mt-0.5">Set 3 of 4 · 45 lb × 8 · RIR 2</p>
+                <div class="mt-3 flex gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full bg-ember-500"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-ember-500"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-ember-500/40 ring-2 ring-ember-500"></span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-steel-700"></span>
+                </div>
+              </div>
+              <div class="rounded-2xl bg-steel-900 p-4 border border-steel-800">
+                <p class="text-[10px] font-bold text-steel-500 tracking-widest">PROGRESSION</p>
+                <p class="text-white text-sm mt-1">⬆ Add 5 lb next session — you beat your target reps.</p>
+              </div>
+              <div class="rounded-2xl bg-steel-900 p-4 border border-steel-800">
+                <div class="flex justify-between text-xs text-steel-400"><span>Protein today</span><span class="text-ember-400 font-bold">128 / 150 g</span></div>
+                <div class="mt-2 h-2 rounded-full bg-steel-800 overflow-hidden"><div class="h-full w-[85%] bg-gradient-to-r from-ember-400 to-ember-600 rounded-full"></div></div>
+              </div>
+              <div class="rounded-xl bg-ember-500 text-steel-950 text-center font-bold text-sm py-3">Finish workout</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SOCIAL PROOF BAR ============ -->
+    <!-- PLACEHOLDER: replace ratings & press mentions with real ones at launch -->
+    <section class="border-y border-steel-200 dark:border-steel-800/60 bg-steel-50 dark:bg-steel-900/40">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 py-8 flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-steel-500 dark:text-steel-400">
+        <div class="flex items-center gap-2">
+          <span class="text-ember-500 text-lg" aria-hidden="true">★★★★★</span>
+          <span class="text-sm font-semibold">4.9 App Store rating<span class="sr-only"> placeholder</span></span>
+        </div>
+        <span class="text-sm font-semibold tracking-wide uppercase opacity-70">As seen in</span>
+        <span class="font-bold text-lg opacity-60">MenoWell</span>
+        <span class="font-bold text-lg opacity-60">GLP-1 Digest</span>
+        <span class="font-bold text-lg opacity-60">Strength Weekly</span>
+      </div>
+    </section>
+
+    <!-- ============ PROBLEM / WHY ============ -->
+    <section class="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-24">
+      <div class="max-w-3xl mx-auto text-center reveal">
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">The scale is lying to you.</h2>
+        <p class="mt-5 text-lg text-steel-600 dark:text-steel-300">
+          GLP-1s are remarkable at driving weight loss — but in a steep calorie deficit, your body burns muscle along with fat. Less muscle means a slower metabolism, weaker bones, and a body that regains fat faster if you ever stop the medication. The fix is proven: <strong class="text-steel-900 dark:text-white">resistance training plus adequate protein</strong>. GLP Steel makes both automatic.
+        </p>
+      </div>
+      <div class="mt-12 grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto reveal">
+        <div class="rounded-2xl border border-steel-200 dark:border-steel-800 p-6 text-center">
+          <p class="text-4xl font-extrabold text-gradient">≈40%</p>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">of GLP-1 weight loss can be lean mass without training</p>
+        </div>
+        <div class="rounded-2xl border border-steel-200 dark:border-steel-800 p-6 text-center">
+          <p class="text-4xl font-extrabold text-gradient">2×</p>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">resistance training + protein can roughly halve lean-mass loss in a deficit</p>
+        </div>
+        <div class="rounded-2xl border border-steel-200 dark:border-steel-800 p-6 text-center">
+          <p class="text-4xl font-extrabold text-gradient">0</p>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">new equipment to buy — we build around what you already own</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section id="features" class="bg-steel-50 dark:bg-steel-900/40 border-y border-steel-200 dark:border-steel-800/60">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-24">
+        <div class="max-w-2xl reveal">
+          <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Point your camera. <span class="text-gradient">Get your plan.</span></h2>
+          <p class="mt-4 text-lg text-steel-600 dark:text-steel-300">No gym required, no guesswork, no spreadsheets. Two photos replace a personal trainer and a nutritionist.</p>
+        </div>
+        <div class="mt-12 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h2l2-3h8l2 3h2v11H4V8Z"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+            <h3 class="font-bold text-lg">Snap your equipment</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Photograph your dumbbells, bands, bench — whatever's in your garage or spare room. AI vision builds an editable inventory in seconds and designs every workout around exactly what you own.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3h6M10 3v4l-4.5 8.5A4 4 0 0 0 9 21h6a4 4 0 0 0 3.5-5.5L14 7V3"/></svg></div>
+            <h3 class="font-bold text-lg">Science-backed programs</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">3, 4, or 5-day plans engineered for muscle preservation in a deficit: smart intensity targets, effort-based sets (RIR), automatic progression, and deload guidance. Every exercise includes a how-to video.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 21c4-3.5 7-6.6 7-10a7 7 0 1 0-14 0c0 3.4 3 6.5 7 10Z"/><path d="M9.5 11.5 11 13l3.5-3.5"/></svg></div>
+            <h3 class="font-bold text-lg">Snap your food, get recipes</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Photograph what's in your fridge and get protein-forward recipes built from it — plus a shopping list to fill the gaps. Designed for the smaller appetite and higher protein needs of GLP-1 users.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg></div>
+            <h3 class="font-bold text-lg">Progress you can see</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Strength trends, estimated one-rep-max curves, PR detection, plateau alerts, and a training heatmap. Watch your strength hold — or climb — while the scale drops.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 21h8m-4-4v4M5 4h14v4a7 7 0 0 1-14 0V4Z"/><path d="M5 6H3a2 2 0 0 0 2 4m14-4h2a2 2 0 0 1-2 4"/></svg></div>
+            <h3 class="font-bold text-lg">Streaks, PRs &amp; wins</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Streaks, badges, and shareable PR cards keep you coming back. Small wins, logged and celebrated — because consistency is what preserves muscle.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4Z"/><path d="M9.5 12l2 2 3.5-3.5"/></svg></div>
+            <h3 class="font-bold text-lg">Privacy-first</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Passwordless login, no ads, no selling your data. Your photos are used only to build your inventory and recipes — stored only with your explicit consent.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section id="how" class="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-24">
+      <div class="max-w-2xl reveal">
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">From photo to first workout in <span class="text-gradient">under 5 minutes</span></h2>
+      </div>
+      <ol class="mt-12 grid md:grid-cols-4 gap-8">
+        <li class="reveal relative">
+          <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">1</span>
+          <h3 class="font-bold text-lg -mt-3">Snap your gear</h3>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Take a few photos of your equipment. Review and edit the inventory the AI finds — it's yours to correct.</p>
+        </li>
+        <li class="reveal relative">
+          <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">2</span>
+          <h3 class="font-bold text-lg -mt-3">Set your week</h3>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Tell us your days per week, session length, and experience. Get a 3, 4, or 5-day plan that fits your life.</p>
+        </li>
+        <li class="reveal relative">
+          <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">3</span>
+          <h3 class="font-bold text-lg -mt-3">Train &amp; log</h3>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Guided sessions with rest timers, pre-filled sets, and instant "add weight next time" progression cues.</p>
+        </li>
+        <li class="reveal relative">
+          <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">4</span>
+          <h3 class="font-bold text-lg -mt-3">Eat for muscle</h3>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Snap your fridge, get high-protein recipes and a shopping list. Hit your protein target even with a GLP-1 appetite.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ============ TRANSFORMATIONS ============ -->
+    <!-- PLACEHOLDER SECTION: replace with real user stories, photos, and verified numbers before launch -->
+    <section class="bg-steel-50 dark:bg-steel-900/40 border-y border-steel-200 dark:border-steel-800/60">
+      <div class="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-24">
+        <div class="max-w-2xl reveal">
+          <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Lighter on the scale. <span class="text-gradient">Stronger in the gym.</span></h2>
+          <p class="mt-4 text-steel-600 dark:text-steel-300">Real progress from people training with the equipment they already had.</p>
+        </div>
+        <div class="mt-12 grid md:grid-cols-3 gap-6">
+          <!-- PLACEHOLDER story -->
+          <figure class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6">
+            <div class="flex gap-4 text-center mb-4">
+              <div class="flex-1 rounded-xl bg-steel-100 dark:bg-steel-800 py-3"><p class="text-2xl font-extrabold">-38 lb</p><p class="text-xs text-steel-500">body weight</p></div>
+              <div class="flex-1 rounded-xl bg-ember-500/10 py-3"><p class="text-2xl font-extrabold text-ember-500">+15 lb</p><p class="text-xs text-steel-500">bench press</p></div>
+            </div>
+            <blockquote class="text-sm text-steel-600 dark:text-steel-300">"Six months on tirzepatide. My doctor expected muscle loss — instead my bench went up. Two dumbbells and a bench in my garage was all it took."</blockquote>
+            <figcaption class="mt-3 text-sm font-semibold">Sarah M. <span class="text-steel-500 font-normal">· placeholder testimonial</span></figcaption>
+          </figure>
+          <!-- PLACEHOLDER story -->
+          <figure class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6">
+            <div class="flex gap-4 text-center mb-4">
+              <div class="flex-1 rounded-xl bg-steel-100 dark:bg-steel-800 py-3"><p class="text-2xl font-extrabold">-52 lb</p><p class="text-xs text-steel-500">body weight</p></div>
+              <div class="flex-1 rounded-xl bg-ember-500/10 py-3"><p class="text-2xl font-extrabold text-ember-500">142 g</p><p class="text-xs text-steel-500">avg daily protein</p></div>
+            </div>
+            <blockquote class="text-sm text-steel-600 dark:text-steel-300">"The fridge scan sold me. Eating enough protein on semaglutide felt impossible until the app started building meals around what I actually had."</blockquote>
+            <figcaption class="mt-3 text-sm font-semibold">David R. <span class="text-steel-500 font-normal">· placeholder testimonial</span></figcaption>
+          </figure>
+          <!-- PLACEHOLDER story -->
+          <figure class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6">
+            <div class="flex gap-4 text-center mb-4">
+              <div class="flex-1 rounded-xl bg-steel-100 dark:bg-steel-800 py-3"><p class="text-2xl font-extrabold">26 wk</p><p class="text-xs text-steel-500">streak</p></div>
+              <div class="flex-1 rounded-xl bg-ember-500/10 py-3"><p class="text-2xl font-extrabold text-ember-500">4 PRs</p><p class="text-xs text-steel-500">this quarter</p></div>
+            </div>
+            <blockquote class="text-sm text-steel-600 dark:text-steel-300">"I've paid $200/month for trainers who did less. Fifteen dollars, once, and it programs my resistance bands better than they ever did."</blockquote>
+            <figcaption class="mt-3 text-sm font-semibold">Priya K. <span class="text-steel-500 font-normal">· placeholder testimonial</span></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PRICING ============ -->
+    <section id="pricing" class="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-24">
+      <div class="max-w-2xl mx-auto text-center reveal">
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Pay once. <span class="text-gradient">Train forever.</span></h2>
+        <p class="mt-4 text-lg text-steel-600 dark:text-steel-300">Fitness apps charge $10–$30 <em>every month</em>. GLP Steel costs less than one month of most — once.</p>
+      </div>
+      <div class="mt-12 max-w-lg mx-auto reveal">
+        <div class="rounded-3xl border-2 border-ember-500 bg-white dark:bg-steel-900 p-8 shadow-xl shadow-ember-500/10 relative">
+          <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-ember-500 text-steel-950 text-xs font-bold px-4 py-1.5">LIFETIME ACCESS</span>
+          <div class="text-center">
+            <p class="text-6xl font-extrabold">$15<span class="text-xl font-semibold text-steel-500"> once</span></p>
+            <p class="mt-2 text-sm text-steel-500 dark:text-steel-400">No subscription. No renewal. No "free trial" that bills you later.</p>
+          </div>
+          <ul class="mt-8 space-y-3 text-sm">
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Equipment scan + full 3/4/5-day program generation</li>
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Unlimited workout logging, progression &amp; rest timers</li>
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Strength analytics: trends, PRs, plateau alerts, heatmap</li>
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>High-protein recipe engine, protein tracking &amp; shopping lists</li>
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>All future updates included</li>
+          </ul>
+          <div class="mt-6 rounded-xl bg-steel-50 dark:bg-steel-800/60 p-4 text-sm text-steel-600 dark:text-steel-300">
+            <p class="font-semibold text-steel-900 dark:text-white">Then just $1 when you need it:</p>
+            <p class="mt-1">New equipment scan (moved house? bought a barbell?) — <strong>$1</strong>. Fresh fridge/meal-prep scan — <strong>$1</strong>. That's it.</p>
+          </div>
+          <a href="#download" class="mt-8 block rounded-xl bg-ember-500 hover:bg-ember-600 text-steel-950 text-center font-bold py-4 transition-colors">Get GLP Steel for $15</a>
+          <p class="mt-3 text-center text-xs text-steel-500">One coffee shop visit. A lifetime of muscle kept.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section id="faq" class="bg-steel-50 dark:bg-steel-900/40 border-y border-steel-200 dark:border-steel-800/60">
+      <div class="mx-auto max-w-3xl px-4 sm:px-6 py-20 sm:py-24">
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-center reveal">Questions, answered</h2>
+        <div class="mt-10 space-y-3">
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              I'm not on a GLP-1. Is this app still for me?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Absolutely. The program engine builds effective strength training for anyone with any equipment. GLP-1 users get extra attention — muscle-preservation programming and protein-first nutrition — but the fundamentals benefit everyone.</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              What equipment do I need?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Whatever you have. A pair of dumbbells, resistance bands, a kettlebell, a full home gym — the app photographs your gear and designs the program around it. Nothing to buy.</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              Is it really $15 with no subscription?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Yes. $15 once buys the full app forever, including updates. The only extras are optional $1 scans: a new equipment scan if your gear changes, or a fresh food scan for new recipes. You'll never see a recurring charge.</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              What happens to my photos?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Photos are used to recognize your equipment or food, and you review and confirm everything the AI finds. Images are retained only with your explicit consent. No ads, no data sales, passwordless login — privacy is a design decision, not a settings toggle.</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              I'm a complete beginner. Will I know what to do?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Yes. Every exercise includes a plain-English description and a how-to video. Sessions guide you set by set with rest timers and pre-filled weights, and the app tells you exactly when to add weight or reps.</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              Why is protein such a big deal on GLP-1s?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">GLP-1 medications suppress appetite, so many users under-eat protein — the raw material for keeping muscle. When intake drops in a deficit, muscle loss accelerates. GLP Steel makes hitting your protein target realistic with small, protein-dense meals built from food you already have. (Educational info, not medical advice — talk to your clinician about your specific needs.)</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              Which platforms are supported?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">iOS today, with Android on the way. Your account and history sync securely, so you can switch devices without losing a single set.</p>
+          </details>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FINAL CTA ============ -->
+    <section class="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-28 text-center">
+      <div class="reveal">
+        <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight max-w-3xl mx-auto">The medication handles the appetite. <span class="text-gradient">Steel handles the muscle.</span></h2>
+        <p class="mt-5 text-lg text-steel-600 dark:text-steel-300 max-w-xl mx-auto">Every week without resistance training is muscle you won't get back easily. Your first workout is one photo away.</p>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+          <a href="#" class="inline-flex items-center gap-3 rounded-xl bg-steel-900 dark:bg-white text-white dark:text-steel-950 px-6 py-3.5 font-semibold hover:opacity-90 transition-opacity" aria-label="Download on the App Store">
+            <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.08ZM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25Z"/></svg>
+            <span class="text-left leading-tight"><span class="block text-[10px] font-normal opacity-80">Download on the</span><span class="block text-base">App Store</span></span>
+          </a>
+          <a href="#" class="inline-flex items-center gap-3 rounded-xl border-2 border-steel-300 dark:border-steel-700 px-6 py-3.5 font-semibold hover:border-ember-500 transition-colors" aria-label="Get it on Google Play">
+            <svg class="w-6 h-6 text-ember-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 2.5v19l11-9.5L3 2.5Zm13.2 7.6L5.7 1.9l10.6 6.1 2.9 2.5-3 -.4Zm0 3.8 3-.4-2.9 2.5-10.6 6.1 10.5-8.2Z"/></svg>
+            <span class="text-left leading-tight"><span class="block text-[10px] font-normal opacity-80">Get it on</span><span class="block text-base">Google Play</span></span>
+          </a>
+        </div>
+        <p class="mt-4 text-sm text-steel-500">$15 once · no subscription · privacy-first</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="border-t border-steel-200 dark:border-steel-800/60 bg-steel-50 dark:bg-steel-900/40">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 py-12 grid sm:grid-cols-3 gap-10">
+      <div>
+        <p class="flex items-center gap-2 font-extrabold text-lg">
+          <svg class="w-6 h-6 text-ember-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>
+          GLP <span class="text-gradient">Steel</span>
+        </p>
+        <p class="mt-3 text-sm text-steel-500 dark:text-steel-400 max-w-xs">Strength and nutrition for the GLP-1 era. Keep the muscle. Lose the weight.</p>
+      </div>
+      <nav class="text-sm space-y-2" aria-label="Footer product">
+        <p class="font-semibold mb-3">Product</p>
+        <a href="#features" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">Features</a>
+        <a href="#how" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">How it works</a>
+        <a href="#pricing" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">Pricing</a>
+        <a href="#faq" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">FAQ</a>
+      </nav>
+      <nav class="text-sm space-y-2" aria-label="Footer legal">
+        <p class="font-semibold mb-3">Company</p>
+        <a href="https://glpsteel.com/privacy" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">Privacy policy</a>
+        <a href="https://glpsteel.com/support" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">Support</a>
+        <a href="mailto:support@glpsteel.com" class="block text-steel-500 dark:text-steel-400 hover:text-ember-500">Contact</a>
+      </nav>
+    </div>
+    <div class="border-t border-steel-200 dark:border-steel-800/60">
+      <p class="mx-auto max-w-6xl px-4 sm:px-6 py-5 text-xs text-steel-500 dark:text-steel-500">© 2026 GLP Steel. All rights reserved. GLP Steel provides fitness and nutrition information, not medical advice. Consult your healthcare provider about exercise and nutrition while on GLP-1 medications.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const dark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    });
+
+    // Scroll-reveal animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>

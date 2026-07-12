@@ -222,3 +222,103 @@ class SetLog(Base):
     logged_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
     session: Mapped[WorkoutSession] = relationship(back_populates="sets")
+
+
+# ----------------------------------------------------------------------------
+# Increment 5: Neutron nutrition module (protein tracking for GLP-1 users)
+# ----------------------------------------------------------------------------
+class NutritionProfile(Base):
+    """Per-user protein profile. Target defaults to 1 g/kg current bodyweight
+    (auto mode recalculates whenever a new weight is logged); the user may pin
+    a custom target instead. Diet pattern + restrictions gate every recipe the
+    model is ever asked to produce — they are hard constraints, not hints."""
+
+    __tablename__ = "nutrition_profiles"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    current_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    goal_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    protein_target_g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_mode: Mapped[str] = mapped_column(String(10), default="auto", nullable=False)  # auto | custom
+    diet_pattern: Mapped[str] = mapped_column(String(20), default="omnivore", nullable=False)
+    # e.g. ["no_garlic","no_onion","no_red_meat","no_dairy","keto","low_carb","custom:shellfish"]
+    restrictions: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    onboarded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now, nullable=False
+    )
+
+
+class WeightLog(Base):
+    """Bodyweight history (deferred analytics input, shipped with Neutron)."""
+
+    __tablename__ = "weight_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    logged_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class PantryItem(Base):
+    """One food item in the user's single active pantry. Flat (not versioned
+    like equipment) — the pantry churns daily and edits replace in place.
+    Scan results are NOT persisted until the user confirms the list, which is
+    also why scan photos are never stored (privacy: process-and-discard)."""
+
+    __tablename__ = "pantry_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    quantity: Mapped[str] = mapped_column(String(60), default="", nullable=False)  # freeform: "2 cans", "500 g"
+    category: Mapped[str] = mapped_column(String(16), default="pantry", nullable=False)  # pantry | fridge | freezer | other
+    protein_per_100g: Mapped[float | None] = mapped_column(Float, nullable=True)
+    protein_density: Mapped[str] = mapped_column(String(10), default="low", nullable=False)  # high | medium | low
+    source: Mapped[str] = mapped_column(String(10), default="manual", nullable=False)  # scan | manual
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class SavedRecipe(Base):
+    """A recipe the user chose to keep. `payload` holds the full generated
+    recipe JSON (ingredients, steps, macros) so it renders offline forever."""
+
+    __tablename__ = "saved_recipes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(160), nullable=False)
+    protein_g: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    calories: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), default="builder", nullable=False)  # pantry_scan | builder | surprise
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class ProteinLog(Base):
+    """One protein intake entry. The tracker, streaks, badges and level are all
+    derived from these rows server-side — nothing gamified is stored twice."""
+
+    __tablename__ = "protein_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    grams: Mapped[float] = mapped_column(Float, nullable=False)
+    calories: Mapped[float | None] = mapped_column(Float, nullable=True)
+    label: Mapped[str] = mapped_column(String(160), default="", nullable=False)  # meal name
+    source: Mapped[str] = mapped_column(String(16), default="quick_add", nullable=False)  # recipe | quick_add | booster
+    logged_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class NutritionBadge(Base):
+    """Awarded badges are permanent even if the qualifying streak later breaks."""
+
+    __tablename__ = "nutrition_badges"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    badge_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    awarded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
