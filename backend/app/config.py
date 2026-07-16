@@ -9,6 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Typed application settings.
+
+    Values are read from environment variables (or a local ``.env`` file),
+    falling back to the development defaults below. Field names map to
+    UPPER_CASE env vars (e.g. ``database_url`` <- ``DATABASE_URL``).
+    """
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # --- Core ---
@@ -54,7 +61,8 @@ class Settings(BaseSettings):
     # --- Defaults for onboarding habits (spec onboarding decision) ---
     default_session_minutes: int = 60
     default_experience: str = "conservative"  # conservative | intermediate | advanced
-# App Store reviewer bypass — when both are set, this email + code logs in
+    # --- App Store review ---
+    # Reviewer bypass — when both are set, this email + code logs in
     # without a real OTP send. Leave blank in normal operation.
     review_email: str = ""
     review_code: str = ""
@@ -62,4 +70,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return the singleton Settings instance (cached after first load)."""
     return Settings()

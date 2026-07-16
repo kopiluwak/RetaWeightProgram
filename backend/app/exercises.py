@@ -61,10 +61,12 @@ class Exercise:
     description: str = ""  # short form cue shown in the program
 
     def available(self, owned: set[str]) -> bool:
+        """True if every requirement group is satisfied by some owned type."""
         return all(bool(group & owned) for group in self.requirements)
 
 
 def _req(*groups: set[str]) -> tuple[frozenset[str], ...]:
+    """Build an AND-of-ORs requirement tuple from equipment-type groups."""
     return tuple(frozenset(g) for g in groups)
 
 

@@ -34,10 +34,12 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 
 def _now() -> dt.datetime:
+    """Timezone-aware UTC now."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 def _version_out(v: InventoryVersion) -> InventoryVersionOut:
+    """Map an ORM version (items must already be loaded) to its response schema."""
     return InventoryVersionOut(
         id=v.id, version_no=v.version_no, status=v.status, source=v.source,
         items=[
@@ -63,6 +65,7 @@ async def _load_version_out(db: AsyncSession, version_id: str) -> InventoryVersi
 
 
 async def _next_version_no(db: AsyncSession, user_id: str) -> int:
+    """Next 1-based version number for this user's inventory history."""
     existing = (await db.execute(
         select(InventoryVersion.version_no).where(InventoryVersion.user_id == user_id)
     )).scalars().all()
@@ -70,12 +73,14 @@ async def _next_version_no(db: AsyncSession, user_id: str) -> int:
 
 
 def _validate_items(items: list[EquipmentItemIn]) -> None:
+    """400 if any submitted item uses a type outside the closed taxonomy."""
     for it in items:
         if not is_valid_type(it.type):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown equipment type: {it.type}")
 
 
 async def _supersede_confirmed(db: AsyncSession, user_id: str) -> None:
+    """Mark all currently-confirmed versions superseded (a new one takes over)."""
     prior = (await db.execute(
         select(InventoryVersion).where(
             InventoryVersion.user_id == user_id, InventoryVersion.status == "confirmed"
@@ -93,6 +98,11 @@ async def capture(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
+    """Run recognition on uploaded photos and return a DRAFT inventory version.
+
+    Photos are persisted (and the flywheel record kept) only with explicit
+    consent; otherwise they are processed in memory and discarded.
+    """
     if not images:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "At least one image required")
 
@@ -138,6 +148,8 @@ async def confirm(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Turn a draft into the canonical confirmed inventory using the user's
+    corrected item list; also stores the correction into the flywheel record."""
     _validate_items(body.items)
     version = (await db.execute(
         select(InventoryVersion)
@@ -179,6 +191,7 @@ async def current_inventory(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """The user's active (latest confirmed) inventory, or null if none yet."""
     version = (await db.execute(
         select(InventoryVersion)
         .where(InventoryVersion.user_id == user.id, InventoryVersion.status == "confirmed")

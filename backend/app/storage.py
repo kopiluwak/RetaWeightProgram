@@ -15,6 +15,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 
 class ImageStorage(abc.ABC):
+    """Backend-agnostic image store interface (S3 or local disk)."""
+
     @abc.abstractmethod
     def put(self, user_id: str, data: bytes, content_type: str = "image/jpeg") -> str:
         """Persist one image; return an opaque storage key."""
@@ -25,6 +27,8 @@ class ImageStorage(abc.ABC):
 
 
 class S3ImageStorage(ImageStorage):
+    """Production backend: S3 with server-side encryption, keyed per user."""
+
     def __init__(self, bucket: str, region: str, prefix: str = "captures/"):
         self._bucket = bucket
         self._prefix = prefix
@@ -73,6 +77,7 @@ _storage: ImageStorage | None = None
 
 
 def build_image_storage(settings) -> ImageStorage:
+    """Build (once) and return the storage backend selected by settings."""
     global _storage
     if _storage is None:
         if settings.image_storage_backend == "s3":

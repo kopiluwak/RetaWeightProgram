@@ -20,6 +20,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_email_sender(settings: Settings = Depends(get_settings)) -> EmailSender:
+    """FastAPI dependency: lazily build and reuse a process-wide email sender."""
     global _email_sender
     if _email_sender is None:
         _email_sender = build_email_sender(settings)
@@ -30,6 +31,11 @@ async def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    """FastAPI dependency: resolve the authenticated user from the bearer token.
+
+    Raises 401 for a missing/invalid/expired token, an unknown user, or a
+    token whose epoch no longer matches (i.e. a revoked session).
+    """
     if creds is None or creds.scheme.lower() != "bearer":
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")
     token = creds.credentials

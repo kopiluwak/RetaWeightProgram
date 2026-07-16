@@ -20,6 +20,8 @@ from .equipment import EquipmentType, is_valid_type
 
 
 class RecognizedItem(BaseModel):
+    """One draft inventory item as reported by the recognizer, with its confidence."""
+
     type: EquipmentType
     quantity: int = Field(default=1, ge=1)
     load_min: float | None = None
@@ -30,6 +32,8 @@ class RecognizedItem(BaseModel):
 
 
 class RecognitionResult(BaseModel):
+    """A full draft inventory plus which recognizer produced it (provenance)."""
+
     items: list[RecognizedItem]
     recognizer: str  # name/version of the recognizer that produced this
 
@@ -51,6 +55,8 @@ RECOGNITION_OUTPUT_CONTRACT = {
 
 
 class EquipmentRecognizer(abc.ABC):
+    """Provider-agnostic recognizer interface."""
+
     name: str = "base"
 
     @abc.abstractmethod
@@ -140,6 +146,7 @@ _PROMPT = (
 
 
 def _detect_image_format(data: bytes) -> str:
+    """Sniff jpeg/png/webp from magic bytes (Bedrock requires the format field)."""
     if data[:3] == b"\xff\xd8\xff":
         return "jpeg"
     if data[:8] == b"\x89PNG\r\n\x1a\n":
@@ -189,6 +196,9 @@ def parse_converse_tool_output(response: dict, recognizer_name: str) -> Recognit
 
 
 class BedrockClaudeRecognizer(EquipmentRecognizer):
+    """Production recognizer: Claude multimodal via Bedrock Converse, with a
+    forced tool call so the response is always schema-shaped JSON."""
+
     def __init__(self, settings):
         import boto3  # imported lazily so the stub path needs no AWS deps
         self._model_id = settings.bedrock_model_id
@@ -197,6 +207,7 @@ class BedrockClaudeRecognizer(EquipmentRecognizer):
         self._client = boto3.client("bedrock-runtime", region_name=settings.aws_region)
 
     def _invoke(self, image_bytes: list[bytes]) -> dict:
+        """Synchronous Bedrock Converse call (run in a thread by recognize)."""
         content: list[dict] = [{"text": _PROMPT}]
         for data in image_bytes:
             content.append({

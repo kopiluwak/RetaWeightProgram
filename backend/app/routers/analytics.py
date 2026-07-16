@@ -158,6 +158,7 @@ class HistoryOut(BaseModel):
 
 
 def _tz(minutes: int) -> dt.timedelta:
+    """Client tz offset as a timedelta, clamped to ±14h (valid UTC offsets)."""
     return dt.timedelta(minutes=max(-840, min(840, minutes)))
 
 
@@ -182,10 +183,12 @@ async def _load_rows(db: AsyncSession, user_id: str, tz: dt.timedelta) -> list[S
 
 
 def _today(tz: dt.timedelta) -> dt.date:
+    """Today's date in the user's local time."""
     return (dt.datetime.now(dt.timezone.utc).replace(tzinfo=None) + tz).date()
 
 
 def _by_exercise(rows: list[SetRow]) -> dict[str, list[SetRow]]:
+    """Group set rows by exercise name, preserving chronological order."""
     out: dict[str, list[SetRow]] = {}
     for r in rows:
         out.setdefault(r.exercise, []).append(r)
@@ -193,6 +196,7 @@ def _by_exercise(rows: list[SetRow]) -> dict[str, list[SetRow]]:
 
 
 def _cut(rows: list[SetRow], days: int | None, today: dt.date) -> list[SetRow]:
+    """Keep only rows within the trailing `days` window (None = all time)."""
     if days is None:
         return rows
     cutoff = today - dt.timedelta(days=days)
@@ -200,6 +204,7 @@ def _cut(rows: list[SetRow], days: int | None, today: dt.date) -> list[SetRow]:
 
 
 def _proj_out(p: Projection | None) -> ProjectionOut | None:
+    """Serialize a Projection (None passes through)."""
     return ProjectionOut(target=p.target, date=p.date.isoformat()) if p else None
 
 
@@ -212,6 +217,8 @@ async def summary(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """One-call dashboard payload: consistency, volume, PRs, most-improved,
+    and muscle focus. Aggregated fresh from raw set logs on every request."""
     off = _tz(tz)
     today = _today(off)
     rows = await _load_rows(db, user.id, off)
@@ -275,6 +282,7 @@ async def exercise_list(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Every exercise the user has logged, most recently performed first."""
     rows = await _load_rows(db, user.id, _tz(tz))
     out: list[ExerciseListItem] = []
     for name, ex_rows in _by_exercise(rows).items():
@@ -296,6 +304,8 @@ async def exercise_detail(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Per-exercise trend detail: series for the chosen range, plus all-time
+    PRs, plateau flag, and PR projection (which always use full history)."""
     if range not in RANGES_DAYS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"range must be one of {list(RANGES_DAYS)}")
     off = _tz(tz)
@@ -351,6 +361,8 @@ async def history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Consistency heatmap cells + a filterable session list. Exercise/muscle
+    filters narrow the session list only — the heatmap always shows all work."""
     if range not in RANGES_DAYS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"range must be one of {list(RANGES_DAYS)}")
     off = _tz(tz)

@@ -17,11 +17,15 @@ logger = logging.getLogger("weightprogram.email")
 
 
 class EmailSender(abc.ABC):
+    """Provider-agnostic interface; the app only ever sends OTP emails."""
+
     @abc.abstractmethod
     def send_otp(self, to_email: str, code: str) -> None: ...
 
 
 class SesEmailSender(EmailSender):
+    """Production sender backed by AWS SES."""
+
     def __init__(self, settings: Settings):
         self._from = settings.ses_from_email
         self._config_set = settings.ses_configuration_set
@@ -63,6 +67,7 @@ class DevEmailSender(EmailSender):
 
 
 def build_email_sender(settings: Settings) -> EmailSender:
+    """Factory: dev sink or real SES sender, per EMAIL_DEV_MODE."""
     if settings.email_dev_mode:
         return DevEmailSender()
     return SesEmailSender(settings)

@@ -21,6 +21,7 @@ router = APIRouter(prefix="/programs", tags=["programs"])
 
 
 async def _latest_confirmed_inventory(db: AsyncSession, user_id: str) -> InventoryVersion | None:
+    """Active inventory (latest confirmed version) with items eagerly loaded."""
     return (await db.execute(
         select(InventoryVersion)
         .where(InventoryVersion.user_id == user_id, InventoryVersion.status == "confirmed")
@@ -30,6 +31,8 @@ async def _latest_confirmed_inventory(db: AsyncSession, user_id: str) -> Invento
 
 
 def _to_out(program: Program, latest_inventory_id: str | None) -> ProgramOut:
+    """Map an ORM program row + its stored plan JSON to the response schema.
+    `stale` flags that the inventory changed since this program was built (S5)."""
     plan = program.plan_json
     return ProgramOut(
         id=program.id,
@@ -52,6 +55,10 @@ async def generate(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Generate and persist a new active program; prior actives are superseded.
+
+    Requires a confirmed inventory and completed onboarding (400 otherwise).
+    """
     inventory = await _latest_confirmed_inventory(db, user.id)
     if inventory is None or not inventory.items:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -91,6 +98,7 @@ async def current(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """The user's active program, or null if none has been generated."""
     program = (await db.execute(
         select(Program)
         .where(Program.user_id == user.id, Program.status == "active")
@@ -108,6 +116,7 @@ async def get_program(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Fetch one program by id (404 if not found or not owned by the caller)."""
     program = (await db.execute(
         select(Program).where(Program.id == program_id, Program.user_id == user.id)
     )).scalar_one_or_none()

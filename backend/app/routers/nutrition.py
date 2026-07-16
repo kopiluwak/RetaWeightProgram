@@ -11,6 +11,9 @@
   POST /nutrition/recipes/adapt      "Make it Vegan/Vegetarian" for one recipe
   POST /nutrition/recipes/surprise   full-day plan hitting the protein target
   GET/POST/DELETE /nutrition/recipes/saved
+  POST /nutrition/parse              AI-last fallback for voice-log phrases the
+                                     device matcher can't resolve (cache-first:
+                                     nutrition_parse_cache, shared across users)
   POST /nutrition/log                log protein intake (returns newly earned badges)
   GET  /nutrition/summary            everything the dashboard needs, one payload
   GET  /nutrition/marketplace        curated protein boosters (affiliate placeholders)
@@ -31,6 +34,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..models import (
     NutritionBadge,
+    NutritionParseCache,
     NutritionProfile,
     PantryItem,
     ProteinLog,
@@ -38,6 +42,7 @@ from ..models import (
     User,
     WeightLog,
 )
+from ..neutron_parse import ParsedFood, build_food_parser, normalize_phrase
 from ..neutron_gamification import (
     BADGES,
     best_streak,
@@ -61,15 +66,18 @@ from ..neutron_vision import ScannedFoodItem, build_pantry_scanner
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
-GRAMS_PER_KG = 1.0          # spec: minimum 1 g protein / kg bodyweight / day
+GRAMS_PER_KG = 1.52         # default auto multiplier: 1.52 g/kg ≈ 0.69 g/lb
+MIN_MULTIPLIER, MAX_MULTIPLIER = 0.8, 3.0  # g/kg bounds; 2.2 ≈ the classic 1 g/lb
 MAX_CUSTOM_RESTRICTIONS = 20
 
 
 def _now() -> dt.datetime:
+    """Timezone-aware UTC now."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 def _local_date(ts: dt.datetime, tz_minutes: int) -> dt.date:
+    """Calendar date of a UTC timestamp in the client's local time."""
     return (ts + dt.timedelta(minutes=tz_minutes)).date()
 
 
@@ -81,6 +89,7 @@ class ProfileOut(BaseModel):
     goal_weight_kg: float | None
     protein_target_g: float | None
     target_mode: str
+    protein_multiplier: float
     diet_pattern: str
     restrictions: list[str]
     onboarded: bool
@@ -89,8 +98,10 @@ class ProfileOut(BaseModel):
 class ProfileIn(BaseModel):
     current_weight_kg: float | None = Field(default=None, gt=20, lt=400)
     goal_weight_kg: float | None = Field(default=None, gt=20, lt=400)
-    # None -> auto (1 g/kg); a number pins a custom target.
+    # None -> auto (multiplier × kg); a number pins a custom target.
     protein_target_g: float | None = Field(default=None, gt=0, lt=500)
+    # Auto-mode g/kg multiplier; None keeps the profile's current value.
+    protein_multiplier: float | None = Field(default=None, ge=MIN_MULTIPLIER, le=MAX_MULTIPLIER)
     diet_pattern: str = "omnivore"
     restrictions: list[str] = Field(default_factory=list)
 
@@ -161,6 +172,21 @@ class SavedRecipeOut(BaseModel):
     recipe: Recipe
     source: str
     created_at: str
+
+
+class ParseIn(BaseModel):
+    """Food phrases the DEVICE matcher could not resolve (already segmented +
+    quantity-stripped where possible by the on-device parser)."""
+    phrases: list[str] = Field(min_length=1, max_length=12)
+
+
+class ParsedFoodOut(ParsedFood):
+    cached: bool = False
+
+
+class ParseOut(BaseModel):
+    items: list[ParsedFoodOut]
+    parser: str
 
 
 class LogIn(BaseModel):
@@ -247,6 +273,7 @@ class MarketplaceOut(BaseModel):
 
 
 async def _get_or_create_profile(db: AsyncSession, user_id: str) -> NutritionProfile:
+    """Fetch the user's nutrition profile, creating an empty one on first use."""
     prof = (await db.execute(
         select(NutritionProfile).where(NutritionProfile.user_id == user_id)
     )).scalar_one_or_none()
@@ -257,14 +284,17 @@ async def _get_or_create_profile(db: AsyncSession, user_id: str) -> NutritionPro
     return prof
 
 
-def _auto_target(weight_kg: float | None) -> float | None:
-    return round(weight_kg * GRAMS_PER_KG, 1) if weight_kg else None
+def _auto_target(weight_kg: float | None, multiplier: float = GRAMS_PER_KG) -> float | None:
+    """Auto-mode protein target: multiplier (g/kg) × current bodyweight."""
+    return round(weight_kg * multiplier, 1) if weight_kg else None
 
 
 def _profile_out(p: NutritionProfile) -> ProfileOut:
+    """Map the ORM profile row to its response schema."""
     return ProfileOut(
         current_weight_kg=p.current_weight_kg, goal_weight_kg=p.goal_weight_kg,
         protein_target_g=p.protein_target_g, target_mode=p.target_mode,
+        protein_multiplier=p.protein_multiplier or GRAMS_PER_KG,
         diet_pattern=p.diet_pattern, restrictions=list(p.restrictions or []),
         onboarded=p.onboarded,
     )
@@ -275,6 +305,8 @@ KNOWN_RESTRICTIONS = ("no_garlic", "no_onion", "no_red_meat", "no_dairy", "keto"
 
 
 def _clean_restrictions(raw: list[str]) -> list[str]:
+    """Keep only known restriction keys or non-empty custom: entries, deduped
+    and capped — these become hard constraints in every recipe prompt."""
     out: list[str] = []
     for r in raw[:MAX_CUSTOM_RESTRICTIONS]:
         r = r.strip()
@@ -286,6 +318,8 @@ def _clean_restrictions(raw: list[str]) -> list[str]:
 
 async def _day_grams(db: AsyncSession, user_id: str, tz: int,
                      since_days: int = 400) -> dict[dt.date, float]:
+    """Total protein grams per local calendar day over the trailing window.
+    This is the single input all streak/level/badge math derives from."""
     cutoff = _now() - dt.timedelta(days=since_days)
     rows = (await db.execute(
         select(ProteinLog.grams, ProteinLog.logged_at)
@@ -299,6 +333,7 @@ async def _day_grams(db: AsyncSession, user_id: str, tz: int,
 
 
 async def _earned_badges(db: AsyncSession, user_id: str) -> dict[str, dt.datetime]:
+    """Already-awarded badges: {badge_key: awarded_at}."""
     rows = (await db.execute(
         select(NutritionBadge).where(NutritionBadge.user_id == user_id)
     )).scalars().all()
@@ -306,6 +341,7 @@ async def _earned_badges(db: AsyncSession, user_id: str) -> dict[str, dt.datetim
 
 
 async def _award(db: AsyncSession, user_id: str, keys: list[str]) -> None:
+    """Insert badge rows (caller is responsible for committing)."""
     for k in keys:
         db.add(NutritionBadge(user_id=user_id, badge_key=k))
 
@@ -345,6 +381,7 @@ async def _check_and_award_badges(db: AsyncSession, user: User, prof: NutritionP
 
 @router.get("/profile", response_model=ProfileOut)
 async def get_profile(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """The user's protein profile (auto-created empty on first read)."""
     prof = await _get_or_create_profile(db, user.id)
     await db.commit()
     return _profile_out(prof)
@@ -353,6 +390,9 @@ async def get_profile(user: User = Depends(get_current_user), db: AsyncSession =
 @router.put("/profile", response_model=ProfileOut)
 async def put_profile(body: ProfileIn, user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db)):
+    """Update the profile. A provided protein target pins custom mode; omitting
+    it returns to auto (multiplier × kg, default 1.52 g/kg ≈ 0.69 g/lb).
+    A changed weight also appends to WeightLog."""
     if body.diet_pattern not in VALID_DIET_PATTERNS:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown diet pattern: {body.diet_pattern}")
     prof = await _get_or_create_profile(db, user.id)
@@ -362,12 +402,15 @@ async def put_profile(body: ProfileIn, user: User = Depends(get_current_user),
     prof.goal_weight_kg = body.goal_weight_kg
     prof.diet_pattern = body.diet_pattern
     prof.restrictions = _clean_restrictions(body.restrictions)
+    if body.protein_multiplier is not None:
+        prof.protein_multiplier = round(body.protein_multiplier, 2)
     if body.protein_target_g is not None:
         prof.target_mode = "custom"
         prof.protein_target_g = round(body.protein_target_g, 1)
     else:
         prof.target_mode = "auto"
-        prof.protein_target_g = _auto_target(prof.current_weight_kg)
+        prof.protein_target_g = _auto_target(prof.current_weight_kg,
+                                             prof.protein_multiplier or GRAMS_PER_KG)
     prof.onboarded = prof.current_weight_kg is not None
     if weight_changed and body.current_weight_kg is not None:
         db.add(WeightLog(user_id=user.id, weight_kg=body.current_weight_kg))
@@ -381,11 +424,13 @@ async def put_profile(body: ProfileIn, user: User = Depends(get_current_user),
 @router.post("/weight", response_model=ProfileOut)
 async def log_weight(body: WeightIn, user: User = Depends(get_current_user),
                      db: AsyncSession = Depends(get_db)):
+    """Log a bodyweight; in auto mode this recalculates the protein target."""
     prof = await _get_or_create_profile(db, user.id)
     db.add(WeightLog(user_id=user.id, weight_kg=body.weight_kg))
     prof.current_weight_kg = body.weight_kg
     if prof.target_mode == "auto":
-        prof.protein_target_g = _auto_target(body.weight_kg)
+        prof.protein_target_g = _auto_target(body.weight_kg,
+                                             prof.protein_multiplier or GRAMS_PER_KG)
     await db.commit()
     return _profile_out(prof)
 
@@ -394,6 +439,7 @@ async def log_weight(body: WeightIn, user: User = Depends(get_current_user),
 async def weight_history(days: int = Query(default=180, ge=1, le=730),
                          user: User = Depends(get_current_user),
                          db: AsyncSession = Depends(get_db)):
+    """Bodyweight history over the trailing `days`, oldest first."""
     cutoff = _now() - dt.timedelta(days=days)
     rows = (await db.execute(
         select(WeightLog).where(WeightLog.user_id == user.id, WeightLog.logged_at >= cutoff)
@@ -421,6 +467,7 @@ async def scan_pantry(images: list[UploadFile] = File(...),
 
 @router.get("/pantry", response_model=list[PantryItemOut])
 async def get_pantry(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """The user's saved pantry items, in insertion order."""
     rows = (await db.execute(
         select(PantryItem).where(PantryItem.user_id == user.id).order_by(PantryItem.created_at)
     )).scalars().all()
@@ -454,6 +501,7 @@ async def replace_pantry(body: PantryReplaceIn, user: User = Depends(get_current
 
 
 async def _pantry_dicts(db: AsyncSession, user_id: str) -> list[dict]:
+    """Pantry as plain dicts, shaped for the recipe prompt builders."""
     rows = (await db.execute(
         select(PantryItem).where(PantryItem.user_id == user_id)
     )).scalars().all()
@@ -465,6 +513,11 @@ async def _pantry_dicts(db: AsyncSession, user_id: str) -> list[dict]:
 async def generate_recipes(body: GenerateRecipesIn, user: User = Depends(get_current_user),
                            db: AsyncSession = Depends(get_db),
                            settings: Settings = Depends(get_settings)):
+    """Generate 3-5 high-protein recipes honoring diet + restrictions.
+
+    Profile restrictions always apply; the request may only add more. Awards
+    the pantry_alchemist badge on the first pantry-based generation.
+    """
     prof = await _get_or_create_profile(db, user.id)
     pantry = await _pantry_dicts(db, user.id) if body.use_pantry else []
     diet = body.diet_pattern if body.diet_pattern in VALID_DIET_PATTERNS else prof.diet_pattern
@@ -514,6 +567,7 @@ async def adapt_recipe(body: AdaptRecipeIn, user: User = Depends(get_current_use
 async def surprise_me(user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db),
                       settings: Settings = Depends(get_settings)):
+    """Generate a full-day meal plan that sums to the user's protein target."""
     prof = await _get_or_create_profile(db, user.id)
     if not prof.protein_target_g:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -536,6 +590,7 @@ async def surprise_me(user: User = Depends(get_current_user),
 
 @router.get("/recipes/saved", response_model=list[SavedRecipeOut])
 async def list_saved(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Saved recipes, newest first (payload renders offline — no model call)."""
     rows = (await db.execute(
         select(SavedRecipe).where(SavedRecipe.user_id == user.id)
         .order_by(SavedRecipe.created_at.desc())
@@ -549,6 +604,7 @@ async def list_saved(user: User = Depends(get_current_user), db: AsyncSession = 
 @router.post("/recipes/saved", response_model=SavedRecipeOut)
 async def save_recipe(body: SaveRecipeIn, user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db)):
+    """Persist a generated recipe (full JSON payload) to the user's cookbook."""
     r = SavedRecipe(
         user_id=user.id, title=body.recipe.title, protein_g=body.recipe.protein_g,
         calories=body.recipe.calories, payload=body.recipe.model_dump(mode="json"),
@@ -563,6 +619,7 @@ async def save_recipe(body: SaveRecipeIn, user: User = Depends(get_current_user)
 @router.delete("/recipes/saved/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_saved(recipe_id: str, user: User = Depends(get_current_user),
                        db: AsyncSession = Depends(get_db)):
+    """Remove a saved recipe (404 if absent or not owned by the caller)."""
     r = (await db.execute(
         select(SavedRecipe).where(SavedRecipe.id == recipe_id, SavedRecipe.user_id == user.id)
     )).scalar_one_or_none()
@@ -575,15 +632,73 @@ async def delete_saved(recipe_id: str, user: User = Depends(get_current_user),
 # ------------------------------------------------------------------ logging
 
 
+# ------------------------------------------------------------------ voice-log parse (AI-last)
+
+
+@router.post("/parse", response_model=ParseOut)
+async def parse_foods(body: ParseIn, user: User = Depends(get_current_user),
+                      db: AsyncSession = Depends(get_db),
+                      settings: Settings = Depends(get_settings)):
+    """Cache-first protein estimation for dictated food phrases.
+
+    1. Normalize each phrase (same rules as the device matcher).
+    2. Serve anything already in nutrition_parse_cache (shared across users).
+    3. ONLY the remaining misses go to Bedrock, in one batched call, and the
+       results are written back to the cache — a phrase is estimated by the
+       model at most once, ever. The device also caches the response locally,
+       so repeat requests normally never reach this endpoint at all.
+    """
+    norms: list[str] = []
+    order: list[str] = []          # normalized keys in request order, deduped
+    for p in body.phrases:
+        n = normalize_phrase(p)
+        if n and n not in norms:
+            norms.append(n)
+            order.append(p.strip()[:200])
+    if not norms:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "No usable phrases")
+
+    rows = (await db.execute(
+        select(NutritionParseCache).where(NutritionParseCache.phrase_norm.in_(norms))
+    )).scalars().all()
+    hits: dict[str, dict] = {r.phrase_norm: r.payload for r in rows}
+
+    misses = [order[i] for i, n in enumerate(norms) if n not in hits]
+    parser_name = "cache"
+    if misses:
+        parser = build_food_parser(settings)
+        result = await parser.parse(misses)
+        parser_name = result.parser
+        for item in result.items:
+            n = normalize_phrase(item.phrase)
+            if not n or n in hits:
+                continue
+            hits[n] = item.model_dump()
+            db.add(NutritionParseCache(phrase_norm=n, payload=item.model_dump(),
+                                       model_id=parser_name))
+        await db.commit()
+
+    items: list[ParsedFoodOut] = []
+    for i, n in enumerate(norms):
+        payload = hits.get(n)
+        if payload is None:
+            continue  # model skipped it; device falls back to its heuristic
+        was_cached = n not in {normalize_phrase(m) for m in misses}
+        items.append(ParsedFoodOut(**{**payload, "phrase": order[i]}, cached=was_cached))
+    return ParseOut(items=items, parser=parser_name)
+
+
 @router.post("/log", response_model=LogOut)
 async def log_protein(body: LogIn, tz: int = Query(default=0, ge=-840, le=840),
                       user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db)):
+    """Log a protein intake entry; responds with today's running total,
+    percent of target, any newly earned badges, and a coaching message."""
     prof = await _get_or_create_profile(db, user.id)
     entry = ProteinLog(
         user_id=user.id, grams=round(body.grams, 1), calories=body.calories,
         label=body.label.strip()[:160],
-        source=body.source if body.source in ("recipe", "quick_add", "booster") else "quick_add",
+        source=body.source if body.source in ("recipe", "quick_add", "booster", "voice") else "quick_add",
     )
     db.add(entry)
     await db.flush()
@@ -609,6 +724,7 @@ async def log_protein(body: LogIn, tz: int = Query(default=0, ge=-840, le=840),
 async def log_history(days: int = Query(default=7, ge=1, le=90),
                       user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db)):
+    """Protein log entries over the trailing `days`, newest first."""
     cutoff = _now() - dt.timedelta(days=days)
     rows = (await db.execute(
         select(ProteinLog).where(ProteinLog.user_id == user.id, ProteinLog.logged_at >= cutoff)
@@ -621,6 +737,7 @@ async def log_history(days: int = Query(default=7, ge=1, le=90),
 @router.delete("/log/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_log(entry_id: str, user: User = Depends(get_current_user),
                      db: AsyncSession = Depends(get_db)):
+    """Delete one protein log entry (undo)."""
     e = (await db.execute(
         select(ProteinLog).where(ProteinLog.id == entry_id, ProteinLog.user_id == user.id)
     )).scalar_one_or_none()
@@ -637,6 +754,8 @@ async def delete_log(entry_id: str, user: User = Depends(get_current_user),
 async def summary(tz: int = Query(default=0, ge=-840, le=840),
                   user: User = Depends(get_current_user),
                   db: AsyncSession = Depends(get_db)):
+    """One-call dashboard payload: today's progress, 7-day bars, 4-week trend,
+    streaks, level, muscle score, and the full badge board."""
     prof = await _get_or_create_profile(db, user.id)
     target = prof.protein_target_g or 0.0
     today = _local_date(_now(), tz)
@@ -744,4 +863,5 @@ _DISCLOSURE = (
 
 @router.get("/marketplace", response_model=MarketplaceOut)
 async def marketplace(user: User = Depends(get_current_user)):
+    """Curated protein-booster catalog with the affiliate disclosure."""
     return MarketplaceOut(items=_MARKETPLACE, disclosure=_DISCLOSURE)

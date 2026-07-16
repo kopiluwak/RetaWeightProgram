@@ -33,14 +33,18 @@ router = APIRouter(prefix="/workouts", tags=["workouts"])
 
 
 def _now() -> dt.datetime:
+    """Timezone-aware UTC now."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 def _iso(d: dt.datetime | None) -> str | None:
+    """ISO-8601 string or None (timestamps cross the wire as strings)."""
     return d.isoformat() if d else None
 
 
 def _session_out(s: WorkoutSession, suggestions=None) -> WorkoutSessionOut:
+    """Map a session (sets must be loaded) to its response schema; sets are
+    ordered by exercise then set number for a stable UI display."""
     return WorkoutSessionOut(
         id=s.id, program_id=s.program_id, day_index=s.day_index, day_name=s.day_name,
         readiness=s.readiness, status=s.status,
@@ -54,6 +58,7 @@ def _session_out(s: WorkoutSession, suggestions=None) -> WorkoutSessionOut:
 
 
 async def _load_session(db: AsyncSession, session_id: str, user_id: str) -> WorkoutSession:
+    """Fetch an owned session with sets eagerly loaded; 404 if absent."""
     s = (await db.execute(
         select(WorkoutSession)
         .where(WorkoutSession.id == session_id, WorkoutSession.user_id == user_id)
@@ -70,6 +75,7 @@ async def start(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Open a session for one program day, capturing pre-workout readiness."""
     # Resolve the program (explicit id or the active one).
     if body.program_id:
         program = (await db.execute(
@@ -98,6 +104,7 @@ async def start(
 
 
 async def _session_out_loaded(db, sid, uid):
+    """Reload a session fresh from the DB and serialize it."""
     return _session_out(await _load_session(db, sid, uid))
 
 
@@ -108,6 +115,7 @@ async def log_set(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Append one logged set to an in-progress session (409 if finished)."""
     session = await _load_session(db, session_id, user.id)
     if session.status != "in_progress":
         raise HTTPException(status.HTTP_409_CONFLICT, "Session already completed")
@@ -125,6 +133,7 @@ async def finish(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Close the session and return next-time progression suggestions."""
     session = await _load_session(db, session_id, user.id)
     session.status = "completed"
     session.completed_at = _now()
@@ -145,6 +154,7 @@ async def history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """All sessions newest-first, summarized for the history list."""
     sessions = (await db.execute(
         select(WorkoutSession)
         .where(WorkoutSession.user_id == user.id)
@@ -184,4 +194,5 @@ async def get_session(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """One session with all of its logged sets."""
     return _session_out(await _load_session(db, session_id, user.id))

@@ -1,4 +1,10 @@
-"""Pydantic request/response schemas."""
+"""Pydantic request/response schemas for every API endpoint.
+
+Grouped by feature area (auth, onboarding, inventory, programs, workout
+logging). These define the wire contract with the mobile app; validation
+constraints (ranges, patterns) are enforced here so routers stay thin.
+Nutrition (Neutron) schemas live inline in routers/nutrition.py.
+"""
 from __future__ import annotations
 
 from pydantic import BaseModel, EmailStr, Field

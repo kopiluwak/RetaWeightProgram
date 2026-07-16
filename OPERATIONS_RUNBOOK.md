@@ -44,12 +44,16 @@ Then in the console:
    - EC2 → Target Groups → open both `ecs-gateway-tg-*` → whichever **Targets** tab shows a **healthy** target is the live one.
    - EC2 → Load Balancers → gateway ALB → Listeners → HTTPS:443 → Manage rules → the `api.glpsteel.com` rule → set that healthy target group's weight to **100%**, the other **0%**.
 7. Verify: `curl https://api.glpsteel.com/health` → `{"status":"ok","environment":"production"}`.
-8. **First deploy with Neutron (nutrition module):** the 6 new tables
+8. **First deploy with Neutron (nutrition module):** the 7 new tables
    (`nutrition_profiles`, `weight_logs`, `pantry_items`, `saved_recipes`,
-   `protein_logs`, `nutrition_badges`) are created automatically by
+   `protein_logs`, `nutrition_badges`, `nutrition_parse_cache` — the last
+   added by Voice Log 2026-07-12) are created automatically by
    `init_models` on boot — no manual DB step. Smoke-test with an authed token:
-   `GET /nutrition/marketplace` (static data, exercises the router) and
-   `GET /nutrition/profile` (exercises the new tables).
+   `GET /nutrition/marketplace` (static data, exercises the router),
+   `GET /nutrition/profile` (exercises the new tables), and
+   `POST /nutrition/parse` with `{"phrases": ["grilled chicken breast"]}`
+   (exercises the voice-log cache + Bedrock text path; call it twice — the
+   second response must return `"cached": true`).
 
 ---
 
@@ -63,7 +67,9 @@ to use as a smoke test.
 cd "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram/mobile"
 
 # 1. Deps in sync (mandatory after any package.json change, e.g. the analytics
-#    deps react-native-svg / react-native-view-shot):
+#    deps react-native-svg / react-native-view-shot, or the Voice Log deps
+#    expo-speech-recognition / expo-sqlite — the latter two are NATIVE +
+#    config-plugin deps, so they force a full `npx expo run:ios` rebuild):
 npm install
 
 # 2. Typecheck — cheapest possible catch:
@@ -169,6 +175,19 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
    instead. Any new drawing/canvas work: same substrate, and verify on the simulator (section B)
    before pushing.
 
+10. **app.json config plugins DON'T apply to EAS builds — this is a bare project.**
+    `mobile/ios/` exists (created by `expo run:ios`), so EAS builds the native
+    project as-is and never runs prebuild; plugin entries in `app.json` (e.g.
+    permission strings) silently do nothing. This caused the ITMS-90683
+    rejection of Build 11 (missing `NSSpeechRecognitionUsageDescription` for
+    Voice Log — fixed 2026-07-12 by editing `ios/WeightProgram/Info.plist`
+    directly). Rule: any new iOS permission/entitlement/plugin setting must be
+    added to `ios/WeightProgram/Info.plist` (or the Xcode project) by hand.
+    Keep the `app.json` plugin entries anyway — they're the source of truth if
+    the `ios/` folder is ever regenerated with `npx expo prebuild --clean`
+    (which otherwise OVERWRITES hand edits — re-check Info.plist after any
+    prebuild).
+
 ---
 
 ## E. Pre-public-launch checklist (open items)
@@ -208,3 +227,16 @@ aws cloudfront create-invalidation --distribution-id DIST_ID_HERE --paths "/*"
   take up to 24h to appear. Invalidations take ~1–2 min; first 1,000 paths/month are free.
 - Bucket is private (CloudFront OAC); don't add a public bucket policy.
 - ACM cert for glpsteel.com/www lives in us-east-1 (required by CloudFront).
+
+---
+
+## G. Push project to GitHub
+
+Repo: https://github.com/kopiluwak/RetaWeightProgram (remote `origin`, branch `main`).
+
+```bash
+cd "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram"
+git add -A
+git commit -m "describe the change"
+git push origin main
+```

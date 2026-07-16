@@ -70,6 +70,8 @@ _COACHING_NOTES = [
 
 @dataclass
 class ProgramExercise:
+    """One prescribed exercise within a training day (sets/reps/RIR/rest)."""
+
     name: str
     pattern: str
     primary: list[str]
@@ -85,6 +87,8 @@ class ProgramExercise:
 
 @dataclass
 class ProgramDay:
+    """A single training day: exercises, unfillable slots (gaps), time estimate."""
+
     name: str
     exercises: list[ProgramExercise] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
@@ -93,6 +97,8 @@ class ProgramDay:
 
 @dataclass
 class Program:
+    """A complete weekly program plus aggregate stats and coaching notes."""
+
     days_per_week: int
     session_minutes: int
     experience: str
@@ -106,14 +112,17 @@ class Program:
 
 
 def owned_types(inventory_items: list[dict]) -> set[str]:
+    """Distinct equipment type strings present in the confirmed inventory."""
     return {it["type"] for it in inventory_items}
 
 
 def session_set_capacity_minutes(session_minutes: int) -> int:
+    """Minutes available for working sets after the fixed warm-up block."""
     return max(0, session_minutes - _WARMUP_MIN)
 
 
 def _cost(compound: bool) -> float:
+    """Per-set time cost in minutes (compounds cost more due to longer rest)."""
     return _COST_COMPOUND if compound else _COST_ACCESSORY
 
 
@@ -139,6 +148,7 @@ def _pick(pattern: str, owned: set[str], usage: dict[str, int]) -> tuple[Exercis
 
 
 def _scale_sets(base: int, factor: float) -> int:
+    """Scale template sets by the experience factor, never below the floor."""
     return max(_MIN_SETS, round(base * factor))
 
 
@@ -165,6 +175,14 @@ def generate_program(
     session_minutes: int,
     experience: str,
 ) -> Program:
+    """Build a full weekly Program from inventory + habits.
+
+    Deterministic pipeline per day: pick the best available exercise for each
+    template slot (with substitution fallbacks), scale sets by experience,
+    merge duplicate lifts, then trim sets to fit the session time budget.
+
+    Raises ValueError if days_per_week is not 3, 4, or 5.
+    """
     if days_per_week not in _TEMPLATES:
         raise ValueError("days_per_week must be 3, 4, or 5")
 

@@ -10,6 +10,8 @@ import enum
 
 
 class EquipmentType(str, enum.Enum):
+    """Every equipment type the system understands (closed vocabulary)."""
+
     BARBELL = "barbell"
     PLATES = "plates"                 # weight plates (denominations in attributes)
     FIXED_DUMBBELLS = "fixed_dumbbells"
@@ -70,4 +72,5 @@ PATTERN_SUPPORT: dict[EquipmentType, set[str]] = {
 
 
 def is_valid_type(value: str) -> bool:
+    """True if `value` is a recognized EquipmentType value string."""
     return value in EquipmentType._value2member_map_

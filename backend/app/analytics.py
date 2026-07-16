@@ -42,6 +42,7 @@ OTHER_MUSCLE = "other"
 
 
 def muscles_for(exercise_name: str) -> tuple[str, ...]:
+    """Primary muscles for an exercise name; ("other",) if not in the library."""
     e = _CATALOG.get(exercise_name.strip().lower())
     return e.primary if e else (OTHER_MUSCLE,)
 
@@ -61,6 +62,8 @@ class SetRow:
 
 
 def e1rm(weight: float | None, reps: int, rir: int) -> float | None:
+    """Estimated 1RM (Epley, RIR-adjusted); None if the set isn't eligible
+    (unweighted, zero reps, or effective reps beyond the accuracy ceiling)."""
     if weight is None or weight <= 0 or reps <= 0:
         return None
     effective = reps + max(rir, 0)
@@ -70,10 +73,12 @@ def e1rm(weight: float | None, reps: int, rir: int) -> float | None:
 
 
 def set_volume(weight: float | None, reps: int) -> float:
+    """Tonnage for one set; NULL-weight sets contribute 0 by spec."""
     return (weight or 0.0) * reps
 
 
 def week_start(d: dt.date) -> dt.date:
+    """The Monday that starts the week containing `d`."""
     return d - dt.timedelta(days=d.weekday())  # Monday
 
 
@@ -153,12 +158,14 @@ def pr_events(bests: list[SessionBest]) -> list[PrEvent]:
 
 
 def pct_change(series: list[tuple[dt.date, float]]) -> float | None:
+    """Percent change from first to last point; None if undefined."""
     if len(series) < 2 or series[0][1] == 0:
         return None
     return round((series[-1][1] / series[0][1] - 1) * 100, 1)
 
 
 def detect_plateau(bests: list[SessionBest], today: dt.date) -> bool:
+    """Apply the locked plateau rule (see module docstring) to one exercise."""
     pts = [(b.date, b.e1rm) for b in bests if b.e1rm is not None]
     if len(pts) < PLATEAU_MIN_SESSIONS:
         return False
@@ -181,6 +188,8 @@ class Projection:
 
 
 def project_pr(bests: list[SessionBest], today: dt.date) -> Projection | None:
+    """Forecast when the next ~+2.5% e1RM PR lands, or None if the trend
+    doesn't qualify (too few points, non-positive slope, or beyond horizon)."""
     cutoff = today - dt.timedelta(days=PROJECTION_WINDOW_DAYS)
     pts = [(b.date, b.e1rm) for b in bests if b.e1rm is not None and b.date >= cutoff]
     if len(pts) < PROJECTION_MIN_POINTS:
@@ -204,6 +213,7 @@ def project_pr(bests: list[SessionBest], today: dt.date) -> Projection | None:
 # ------------------------------------------------------------ whole-account
 
 def bucket_weekly(rows: list[SetRow], value=lambda r: set_volume(r.weight, r.reps)) -> list[tuple[dt.date, float]]:
+    """Sum `value(row)` per calendar week (keyed by Monday), sorted by week."""
     acc: dict[dt.date, float] = defaultdict(float)
     for r in rows:
         acc[week_start(r.when.date())] += value(r)
@@ -242,6 +252,7 @@ def weekly_streak(session_dates: list[dt.date], target: int, today: dt.date) -> 
 
 
 def month_volume(rows: list[SetRow], year: int, month: int) -> float:
+    """Total tonnage logged within one calendar month."""
     return sum(
         set_volume(r.weight, r.reps)
         for r in rows
@@ -265,6 +276,7 @@ def muscle_volume_split(rows: list[SetRow]) -> dict[str, float]:
 
 
 def daily_set_counts(rows: list[SetRow]) -> dict[dt.date, int]:
+    """Sets logged per calendar day (feeds the consistency heatmap)."""
     acc: dict[dt.date, int] = defaultdict(int)
     for r in rows:
         acc[r.when.date()] += 1

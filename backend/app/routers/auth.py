@@ -32,11 +32,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _now() -> dt.datetime:
+    """Timezone-aware UTC now."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 async def _issue_token_pair(db: AsyncSession, user: User, settings: Settings,
                             family_id: str | None = None) -> TokenPair:
+    """Mint an access JWT + new refresh token (hashed at rest) and commit.
+
+    Passing `family_id` keeps a rotated refresh token in the same family so
+    reuse detection can revoke the whole lineage.
+    """
     raw_refresh = generate_refresh_token()
     rt = RefreshToken(
         user_id=user.id,
@@ -58,8 +64,13 @@ async def request_otp(
     settings: Settings = Depends(get_settings),
     email_sender: EmailSender = Depends(get_email_sender),
 ):
+    """Start login: create the user if new, then email a one-time code.
+
+    Always returns the same neutral message so the endpoint can't be used to
+    probe which emails have accounts.
+    """
     email = body.email.lower()
-# Reviewer bypass: ensure the account exists, skip the real OTP + email send.
+    # Reviewer bypass: ensure the account exists, skip the real OTP + email send.
     if settings.review_email and email == settings.review_email.lower():
         user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user is None:
@@ -108,8 +119,9 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
+    """Complete login: validate the code and issue an access/refresh pair."""
     email = body.email.lower()
- # Reviewer bypass: accept the fixed code for the review email only.
+    # Reviewer bypass: accept the fixed code for the review email only.
     if (settings.review_email and email == settings.review_email.lower()
             and settings.review_code and body.code == settings.review_code):
         user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
@@ -156,6 +168,11 @@ async def refresh(
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
+    """Rotate a refresh token: retire the old one, return a fresh pair.
+
+    Presenting an already-rotated token is treated as theft and revokes the
+    entire token family.
+    """
     token_hash = sha256_hex(body.refresh_token)
     rt = (await db.execute(
         select(RefreshToken).where(RefreshToken.token_hash == token_hash)
@@ -191,6 +208,7 @@ async def logout(
     body: LogoutIn,
     db: AsyncSession = Depends(get_db),
 ):
+    """Revoke this device's refresh token, or every session if `everywhere`."""
     if body.everywhere:
         # Need the user; resolve via the supplied refresh token.
         if not body.refresh_token:

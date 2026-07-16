@@ -19,14 +19,18 @@ from .database import Base
 
 
 def _uuid() -> str:
+    """Default factory for string (UUID4) primary keys."""
     return str(uuid.uuid4())
 
 
 def _now() -> dt.datetime:
+    """Default factory for timezone-aware UTC timestamps."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 class User(Base):
+    """An account, identified by email (passwordless — OTP login only)."""
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -54,6 +58,8 @@ class User(Base):
 
 
 class OtpCode(Base):
+    """A pending login code (F3): hashed, short-lived, single-use, attempt-limited."""
+
     __tablename__ = "otp_codes"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -66,6 +72,10 @@ class OtpCode(Base):
 
 
 class RefreshToken(Base):
+    """Server-side refresh-token registry entry (F4). Tokens are stored hashed;
+    rotation marks the old row `used`, so reuse of a used token signals theft
+    and revokes the whole family."""
+
     __tablename__ = "refresh_tokens"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -82,6 +92,8 @@ class RefreshToken(Base):
 
 
 class UserHabits(Base):
+    """Training preferences captured at onboarding; drive program generation."""
+
     __tablename__ = "user_habits"
 
     user_id: Mapped[str] = mapped_column(
@@ -193,6 +205,9 @@ class Program(Base):
 # Increment 4: workout logging (spec S3 #4 readiness/RIR, #6 progression)
 # ----------------------------------------------------------------------------
 class WorkoutSession(Base):
+    """One logged training session against a program day, with pre-session
+    readiness (1-5) used by the progression engine's autoregulation."""
+
     __tablename__ = "workout_sessions"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -209,6 +224,8 @@ class WorkoutSession(Base):
 
 
 class SetLog(Base):
+    """A single logged working set (weight × reps @ RIR) within a session."""
+
     __tablename__ = "set_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
@@ -228,9 +245,9 @@ class SetLog(Base):
 # Increment 5: Neutron nutrition module (protein tracking for GLP-1 users)
 # ----------------------------------------------------------------------------
 class NutritionProfile(Base):
-    """Per-user protein profile. Target defaults to 1 g/kg current bodyweight
-    (auto mode recalculates whenever a new weight is logged); the user may pin
-    a custom target instead. Diet pattern + restrictions gate every recipe the
+    """Per-user protein profile. Target defaults to protein_multiplier ×
+    current bodyweight (1.52 g/kg ≈ 0.69 g/lb; auto mode recalculates whenever
+    a new weight is logged); the user may pin a custom target instead. Diet pattern + restrictions gate every recipe the
     model is ever asked to produce — they are hard constraints, not hints."""
 
     __tablename__ = "nutrition_profiles"
@@ -242,6 +259,9 @@ class NutritionProfile(Base):
     goal_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     protein_target_g: Mapped[float | None] = mapped_column(Float, nullable=True)
     target_mode: Mapped[str] = mapped_column(String(10), default="auto", nullable=False)  # auto | custom
+    # Auto-mode multiplier in g protein per kg bodyweight. Default 1.52 g/kg
+    # ≈ 0.69 g/lb; 1.0 = the original spec minimum, 2.2 ≈ the classic 1 g/lb.
+    protein_multiplier: Mapped[float] = mapped_column(Float, default=1.52, nullable=False)
     diet_pattern: Mapped[str] = mapped_column(String(20), default="omnivore", nullable=False)
     # e.g. ["no_garlic","no_onion","no_red_meat","no_dairy","keto","low_carb","custom:shellfish"]
     restrictions: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
@@ -309,14 +329,43 @@ class ProteinLog(Base):
     grams: Mapped[float] = mapped_column(Float, nullable=False)
     calories: Mapped[float | None] = mapped_column(Float, nullable=True)
     label: Mapped[str] = mapped_column(String(160), default="", nullable=False)  # meal name
-    source: Mapped[str] = mapped_column(String(16), default="quick_add", nullable=False)  # recipe | quick_add | booster
+    source: Mapped[str] = mapped_column(String(16), default="quick_add", nullable=False)  # recipe | quick_add | booster | voice
     logged_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class NutritionParseCache(Base):
+    """AI-last cache for the voice-log fallback. Keyed by the NORMALIZED food
+    phrase and shared across ALL users (a phrase like 'grilled chicken breast'
+    is not personal data) — each distinct phrase hits Bedrock at most once, ever."""
+
+    __tablename__ = "nutrition_parse_cache"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    phrase_norm: Mapped[str] = mapped_column(String(200), unique=True, index=True, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)  # ParsedFood dict
+    model_id: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 
 
 class NutritionBadge(Base):
     """Awarded badges are permanent even if the qualifying streak later breaks."""
 
     __tablename__ = "nutrition_badges"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    badge_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    awarded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+# ----------------------------------------------------------------------------
+# Gamification (workout XP / streaks / achievements — see app/gamification.py)
+# ----------------------------------------------------------------------------
+class WorkoutBadge(Base):
+    """Awarded workout achievements — permanent even if the streak later breaks
+    (mirror of NutritionBadge; XP itself is recomputed from history, not stored)."""
+
+    __tablename__ = "workout_badges"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)

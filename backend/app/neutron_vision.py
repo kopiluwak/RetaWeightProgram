@@ -23,6 +23,8 @@ VALID_DENSITIES = ("high", "medium", "low")
 
 
 class ScannedFoodItem(BaseModel):
+    """One draft food item from a scan, with protein info and confidence."""
+
     name: str
     quantity: str = ""                    # freeform estimate: "2 cans", "~500 g", "1 dozen"
     category: str = "pantry"              # pantry | fridge | freezer | other
@@ -32,6 +34,8 @@ class ScannedFoodItem(BaseModel):
 
 
 class PantryScanResult(BaseModel):
+    """Full draft food list plus which scanner produced it (provenance)."""
+
     items: list[ScannedFoodItem]
     recognizer: str
 
@@ -153,6 +157,8 @@ class DevStubPantryScanner:
 
 
 class BedrockClaudePantryScanner:
+    """Production scanner: Claude multimodal via Bedrock Converse (forced tool)."""
+
     def __init__(self, settings):
         import boto3  # lazy: stub path needs no AWS deps
         self._model_id = settings.bedrock_model_id
@@ -164,6 +170,7 @@ class BedrockClaudePantryScanner:
         self._client = boto3.client("bedrock-runtime", region_name=settings.aws_region)
 
     def _detect_format(self, data: bytes) -> str:
+        """Sniff jpeg/png/webp from magic bytes."""
         if data[:3] == b"\xff\xd8\xff":
             return "jpeg"
         if data[:8] == b"\x89PNG\r\n\x1a\n":
@@ -173,6 +180,7 @@ class BedrockClaudePantryScanner:
         return "jpeg"
 
     def _invoke(self, image_bytes: list[bytes]) -> dict:
+        """Synchronous Bedrock Converse call (run in a thread by scan)."""
         content: list[dict] = [{"text": PANTRY_SCAN_PROMPT}]
         for data in image_bytes:
             content.append({
@@ -206,6 +214,7 @@ _scanner = None
 
 
 def build_pantry_scanner(settings):
+    """Build (once) and return the scanner selected by settings.vision_provider."""
     global _scanner
     if _scanner is None:
         if settings.vision_provider == "bedrock":

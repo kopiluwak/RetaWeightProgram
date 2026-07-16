@@ -60,6 +60,7 @@ honest "partnerships not live yet" alert), commission disclosure footer.
 | `saved_recipes` | title, protein_g, calories, payload JSON, source | payload = full recipe, renders offline |
 | `protein_logs` | grams, calories, label, source recipe\|quick_add\|booster, logged_at | single source of truth for all gamification |
 | `nutrition_badges` | badge_key, awarded_at | awards are permanent |
+| `nutrition_parse_cache` | phrase_norm (unique), payload JSON, model_id | voice-log AI cache, shared across users (no user_id) |
 
 ## N3. API surface (`backend/app/routers/nutrition.py`)
 
@@ -68,7 +69,8 @@ honest "partnerships not live yet" alert), commission disclosure footer.
 `POST /nutrition/recipes/{generate,adapt,surprise}` ·
 `GET/POST/DELETE /nutrition/recipes/saved` ·
 `POST/GET/DELETE /nutrition/log` · `GET /nutrition/summary` ·
-`GET /nutrition/marketplace`.
+`GET /nutrition/marketplace` · `POST /nutrition/parse` (voice-log AI
+fallback; log source `voice` added).
 Day bucketing uses `tz` minutes east of UTC, identical to `/analytics`.
 
 ## N4. Vision prompt (pantry scan, `neutron_vision.py`)
@@ -124,14 +126,55 @@ both the scan screen and Neutron home). No medication data — consistent with
 the app-wide F8 rule. Copy is supportive and science-anchored ("1 g/kg to
 preserve lean mass"), never shaming; motivational lines rotate by ratio bands.
 
-## N8. Ship checklist
+## N8. Voice Log (added 2026-07-12) — cache-first, AI-last protein logging
+
+**Flow.** Neutron home "Voice Log" door → `VoiceLogScreen`. Tap-to-speak
+(`expo-speech-recognition`; iOS SFSpeechRecognizer with
+`requiresOnDeviceRecognition` when the device supports it — audio never
+leaves the phone), live transcript, or a typed fallback input. The
+transcript is parsed entirely on device, shown as editable item cards
+(name, portion, protein Stepper, remove), then each confirmed item is
+logged via the existing `POST /nutrition/log` with `source: "voice"` — so
+streaks/badges/levels/summary all work unchanged.
+
+**On-device pipeline** (`mobile/src/nutrition/`, pure TS, node-unit-tested):
+1. `parser.ts` — quantity/unit grammar (numbers, number-words, g/kg/oz/lb/
+   cups/tbsp/scoops/slices/counts), connector segmentation ("and", "with",
+   commas), filler stripping, protected compounds ("mac and cheese").
+2. Resolution tiers, in order: **alias cache** (user corrections + past AI
+   answers, `voiceStore.ts`, expo-sqlite) → **exact** name/alias hit →
+   **fuzzy** (char-bigram Dice + token containment, threshold 0.62) against
+   `foods.ts` (~350 curated foods + ~700 aliases, approx protein/100 g +
+   default servings) → **Naive Bayes category classifier** (`matcher.ts`,
+   trained from the bundled data at first use, no ML runtime) for a usable
+   offline estimate of unknown foods → only then **AI**.
+3. AI tier: `POST /nutrition/parse` (batched unresolved phrases). Server
+   checks `nutrition_parse_cache` (normalized phrase → estimate, shared
+   across users) and calls Bedrock (forced tool `submit_food_items`, temp 0,
+   maxTokens ≥4096, `neutron_parse.py`, stub via `VISION_PROVIDER=stub`)
+   only on a miss; the device writes the answer to its alias cache — a
+   phrase hits the model at most once, ever, for anyone.
+
+**Corrections.** Any edit on the review card persists to the alias cache as
+`source: correction` (beats AI rows, never overwritten by them) keyed by the
+normalized phrase — `normalize()` in `matcher.ts` MUST stay in sync with
+`normalize_phrase()` in `neutron_parse.py`.
+
+**Offline.** Everything above except the AI tier works with no network;
+low-confidence items get an "approx — tap to fix" badge. Failed log POSTs go
+to the sqlite `log_queue` and flush next time the screen opens.
+
+## N9. Ship checklist
 
 1. Backend: rsync to `~/wp-backend-build`, docker build
    `--provenance=false --sbom=false`, deploy, re-point the ALB listener rule,
    verify `/health` and `GET /nutrition/marketplace`.
 2. Tables auto-create on boot (`init_models`). Alembic still pending (known item #5).
-3. Mobile: no new dependencies. `npm install` only if the analytics deps
-   weren't installed yet. Bump `ios.buildNumber`, EAS build + submit.
+3. Mobile: Voice Log adds TWO new NATIVE deps (`expo-speech-recognition`,
+   `expo-sqlite`) + an `app.json` config plugin (mic + speech-recognition
+   permission strings) — `npm install`, then a FULL dev build
+   (`npx expo run:ios`, not `expo start`) before the simulator pass.
+   Bump `ios.buildNumber`, EAS build + submit.
 4. Verify Bedrock model access covers text-only Converse (same model id).
 5. Before public launch: swap marketplace placeholder URLs for real affiliate
    links and re-check the disclosure copy.

@@ -34,11 +34,13 @@ class ProgressionSuggestion:
 
 
 def _range_bounds(reps_range: str) -> tuple[int, int]:
+    """Parse a "lo-hi" rep range string into (lo, hi) ints."""
     lo, _, hi = reps_range.partition("-")
     return int(lo), int(hi)
 
 
 def suggest_for_exercise(exercise_name: str, reps_range: str, sets: list[LoggedSet]) -> ProgressionSuggestion:
+    """Apply the double-progression rules (see module docstring) to one exercise."""
     if not sets:
         return ProgressionSuggestion(exercise_name, "hold", "No sets logged — keep the same load and log next time.")
 

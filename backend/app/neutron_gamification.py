@@ -61,6 +61,7 @@ MOTIVATION_LOW = [
 
 
 def day_hit(grams: float, target: float) -> bool:
+    """True if a day's grams reach the 90%-of-target threshold."""
     return target > 0 and grams >= HIT_RATIO * target
 
 
@@ -79,6 +80,7 @@ def current_streak(day_grams: dict[dt.date, float], target: float, today: dt.dat
 
 
 def best_streak(day_grams: dict[dt.date, float], target: float) -> int:
+    """Longest run of consecutive hit-days anywhere in the history."""
     if target <= 0 or not day_grams:
         return 0
     days = sorted(day_grams)
@@ -123,6 +125,7 @@ def weekly_streak(day_grams: dict[dt.date, float], target: float, today: dt.date
 
 
 def total_hit_days(day_grams: dict[dt.date, float], target: float) -> int:
+    """Lifetime count of hit-days (the input to level_for)."""
     return sum(1 for g in day_grams.values() if day_hit(g, target))
 
 
@@ -149,6 +152,8 @@ def muscle_score(day_grams: dict[dt.date, float], target: float, today: dt.date)
 
 
 def motivation(today_grams: float, target: float) -> str:
+    """Coaching one-liner tiered by today's attainment; indexed by grams so
+    the message is stable within a day but varies across days."""
     if target <= 0:
         return "Set your weight to get a protein target — 1 g per kg keeps muscle on board."
     ratio = today_grams / target

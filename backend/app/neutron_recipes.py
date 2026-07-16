@@ -25,12 +25,16 @@ VALID_DIFFICULTIES = ("easy", "medium", "hard")
 
 
 class RecipeIngredient(BaseModel):
+    """One ingredient line; from_pantry drives the pantry-utilization UI."""
+
     name: str
     quantity: str = ""            # "200 g", "1 can"
     from_pantry: bool = False     # true if it maps to a scanned/saved pantry item
 
 
 class Recipe(BaseModel):
+    """A complete generated recipe; macros are per serving."""
+
     title: str
     description: str = ""
     servings: int = Field(default=1, ge=1)
@@ -49,16 +53,22 @@ class Recipe(BaseModel):
 
 
 class RecipeBatch(BaseModel):
+    """A set of recipe options plus which engine produced them."""
+
     recipes: list[Recipe]
     generator: str
 
 
 class DayPlanMeal(BaseModel):
+    """One meal slot in a Surprise Me day plan."""
+
     slot: str = "meal"            # breakfast | lunch | dinner | snack
     recipe: Recipe
 
 
 class DayPlan(BaseModel):
+    """A full day of meals with computed protein/calorie totals."""
+
     meals: list[DayPlanMeal]
     total_protein_g: float = 0
     total_calories: float = 0
@@ -161,6 +171,7 @@ _DIET_TEXT = {
 
 
 def _constraints_block(diet_pattern: str, restrictions: list[str]) -> str:
+    """Render the diet pattern + every restriction as HARD-constraint prompt lines."""
     lines = [f"- Diet pattern: {_DIET_TEXT.get(diet_pattern, _DIET_TEXT['omnivore'])}"]
     for r in restrictions:
         if r.startswith("custom:"):
@@ -173,6 +184,7 @@ def _constraints_block(diet_pattern: str, restrictions: list[str]) -> str:
 
 
 def _pantry_block(pantry: list[dict]) -> str:
+    """Render pantry items (with protein-density hints) as a prompt list."""
     if not pantry:
         return "(The user's pantry list is empty — use common, affordable ingredients.)"
     lines = []
@@ -196,6 +208,7 @@ _BASE_PERSONA = (
 def build_recipes_prompt(pantry: list[dict], diet_pattern: str, restrictions: list[str],
                          protein_target_g: float | None, min_protein_per_serving: float,
                          count: int, extra_note: str = "") -> str:
+    """Prompt for the main recipe-options generation call."""
     target = (f"The user's daily protein target is {protein_target_g:.0f} g."
               if protein_target_g else "The user's daily protein target is not set yet.")
     return (
@@ -219,6 +232,7 @@ def build_recipes_prompt(pantry: list[dict], diet_pattern: str, restrictions: li
 
 def build_veganize_prompt(recipe: dict, mode: str, pantry: list[dict],
                           restrictions: list[str]) -> str:
+    """Prompt for rebuilding ONE recipe as vegan/vegetarian."""
     rule = _DIET_TEXT["vegan"] if mode == "vegan" else _DIET_TEXT["vegetarian"]
     return (
         f"{_BASE_PERSONA}\n\n"
@@ -237,6 +251,7 @@ def build_veganize_prompt(recipe: dict, mode: str, pantry: list[dict],
 
 def build_day_plan_prompt(pantry: list[dict], diet_pattern: str, restrictions: list[str],
                           protein_target_g: float) -> str:
+    """Prompt for the Surprise Me full-day plan."""
     return (
         f"{_BASE_PERSONA}\n\n"
         f"Design ONE full day of eating (3 meals + 1-2 optional snacks) that sums "
@@ -255,6 +270,8 @@ def build_day_plan_prompt(pantry: list[dict], diet_pattern: str, restrictions: l
 
 
 def _coerce_recipe(raw: dict) -> Recipe | None:
+    """Defensively coerce one raw recipe dict into a validated Recipe.
+    Returns None (drop the recipe) rather than raising on malformed input."""
     try:
         title = str(raw.get("title", "")).strip()
         if not title:
@@ -294,6 +311,7 @@ def _coerce_recipe(raw: dict) -> Recipe | None:
 
 
 def parse_recipes_tool_output(response: dict, generator: str) -> RecipeBatch:
+    """Pure parser for the submit_recipes forced tool call (unit-testable)."""
     content = response.get("output", {}).get("message", {}).get("content", [])
     tool_input = None
     for block in content:
@@ -307,6 +325,7 @@ def parse_recipes_tool_output(response: dict, generator: str) -> RecipeBatch:
 
 
 def parse_day_plan_tool_output(response: dict, generator: str) -> DayPlan:
+    """Pure parser for submit_day_plan; totals are recomputed server-side."""
     content = response.get("output", {}).get("message", {}).get("content", [])
     tool_input = None
     for block in content:
@@ -392,6 +411,8 @@ class DevStubRecipeEngine:
 
 
 class BedrockClaudeRecipeEngine:
+    """Production engine: text-only Bedrock Converse with forced tool output."""
+
     def __init__(self, settings):
         import boto3
         self._model_id = settings.bedrock_model_id
@@ -400,6 +421,7 @@ class BedrockClaudeRecipeEngine:
         self._client = boto3.client("bedrock-runtime", region_name=settings.aws_region)
 
     def _invoke(self, prompt: str, tool: dict, tool_name: str) -> dict:
+        """Synchronous Bedrock Converse call (run in a thread by the callers)."""
         return self._client.converse(
             modelId=self._model_id,
             messages=[{"role": "user", "content": [{"text": prompt}]}],
@@ -420,6 +442,7 @@ _engine = None
 
 
 def build_recipe_engine(settings):
+    """Build (once) and return the engine selected by settings.vision_provider."""
     global _engine
     if _engine is None:
         if settings.vision_provider == "bedrock":

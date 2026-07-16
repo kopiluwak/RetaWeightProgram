@@ -59,7 +59,9 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   SafeAreaView in `ScreenBackground`; `SafeAreaProvider` now wraps the app root) —
   run `npm install` in `mobile/` before the next build; all are Expo SDK 54-pinned versions.
 
-- **Neutron nutrition module (2026-07-07, not yet deployed/shipped):** see `NEUTRON_SPEC.md`.
+- **Neutron nutrition module (2026-07-07; CONFIRMED LIVE in prod 2026-07-13 —
+  `/nutrition/marketplace` returns 401, so an earlier note here claiming "not
+  yet deployed" was stale):** see `NEUTRON_SPEC.md`.
   Protein profile (1 g/kg auto target + bodyweight logging), "Scan My Kitchen"
   (pantry/fridge photos → Bedrock forced-tool food list → user-confirmed pantry; photos
   never stored), recipe generation + vegan/vegetarian adapt + Surprise-Me day plan
@@ -72,13 +74,52 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   `NutritionApi` in `api.ts`, Home "SOON" teaser card replaced with the live entrance.
   No new mobile dependencies. `tsc --noEmit` clean.
 
+- **Neutron Voice Log (2026-07-12, not yet deployed/shipped):** dictate a meal →
+  approximate daily protein total. Cache-first/AI-last: on-device speech
+  recognition (`expo-speech-recognition`, on-device mode when supported) →
+  on-device parse (`mobile/src/nutrition/`: quantity grammar + ~350-food
+  curated DB with fuzzy matching + Naive Bayes category classifier + sqlite
+  alias cache of corrections/AI answers + offline log queue) → editable review
+  cards → existing `POST /nutrition/log` (`source: "voice"`). AI only for
+  unresolved phrases via new `POST /nutrition/parse` (`neutron_parse.py`,
+  forced-tool Bedrock, stubbed under `VISION_PROVIDER=stub`) backed by the
+  shared `nutrition_parse_cache` table (auto-created on boot) — each phrase
+  hits the model at most once. **Two new native deps** (`expo-speech-recognition
+  ^3.1.3`, `expo-sqlite ~16.0.8`) + app.json plugin entries → next mobile build
+  needs `npm install` AND a full `npx expo run:ios`. `tsc --noEmit` clean;
+  parser/matcher unit-tested under node; backend py_compile + stub-parse tested.
+  Details in `NEUTRON_SPEC.md` §N8.
+
+- **Gamification module (2026-07-13, not yet deployed/shipped):** XP/levels,
+  workout streaks, weekly challenge, achievements, and shaded weekly badges.
+  Backend: `gamification.py` (pure functions, unit-tested in
+  `tests/test_gamification.py` — run `python3 -m tests.test_gamification`),
+  `routers/gamification.py` (`GET /gamification/summary?tz=` — recomputes XP
+  from WorkoutSession+ProteinLog history on every read; reading it also awards
+  new achievements into the new `workout_badges` table, auto-created on boot).
+  Nutrition profile gained a configurable auto-target multiplier
+  (`protein_multiplier` g/kg, default 1.52 ≈ 0.69 g/lb; presets 1.0 (GLP-1
+  minimum) / 1.52 / 2.2≈1 g/lb in NutritionSetupScreen). **Deploy note:**
+  `protein_multiplier` is a new COLUMN on `nutrition_profiles`; `create_all`
+  never adds columns to existing tables, so `init_models` now also runs a
+  `_COLUMN_BOOTSTRAP` list in `database.py` (idempotent ALTERs on boot) — no
+  manual DB step. Add future pre-Alembic column additions to that list. Mobile: new `ui/` components
+  (GamificationHeader, WeeklyChallengeCard, ProteinProgress, ProgressRing,
+  WeeklyBadge — all react-native-svg, no new deps), Home redesigned around the
+  hero + quick actions, WeeklyChallengeCard in ProgramScreen, shaded weekly
+  badges in ProgressScreen's Consistency card, "Today" protein hero in
+  ProteinTrackerScreen, +XP / achievement-unlocked banner on WorkoutScreen's
+  done phase. `GamificationApi` in `api.ts`. JS-only (no native changes) —
+  `npx expo start` on the existing dev build is enough to test. `tsc --noEmit`
+  clean; backend py_compile + unit tests pass.
+
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` · `/habits*` ·
 `/inventory` (capture, {id}/confirm, edit) · `/programs` (generate, current, {id}) ·
 `/workouts` (start, {id}/log, {id}/finish, history, last-performance) ·
 `/analytics` (summary, exercises, exercises/{name}, history) ·
 `/nutrition` (profile, weight, pantry/scan, pantry, recipes/{generate,adapt,surprise,saved},
-log, summary, marketplace) · `/health` · `/privacy` · `/support`
+parse, log, summary, marketplace) · `/gamification/summary` · `/health` · `/privacy` · `/support`
 
 ## Known pending items (open)
 1. Backend still has diagnostic `_log.warning` lines in `recognition.py` — remove before launch.

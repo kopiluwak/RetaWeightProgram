@@ -21,11 +21,13 @@ settings = get_settings()
 
 
 def _now() -> dt.datetime:
+    """Timezone-aware UTC now (single definition so all expiries agree)."""
     return dt.datetime.now(dt.timezone.utc)
 
 
 # --- Hashing (OTP + refresh tokens) ---
 def sha256_hex(value: str) -> str:
+    """SHA-256 hex digest — the only form in which OTPs/refresh tokens are stored."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
@@ -37,10 +39,12 @@ def generate_otp_code() -> str:
 
 # --- Refresh tokens ---
 def generate_refresh_token() -> str:
+    """Opaque URL-safe random refresh token (~64 chars of entropy)."""
     return secrets.token_urlsafe(48)
 
 
 def refresh_expiry() -> dt.datetime:
+    """Absolute expiry timestamp for a refresh token minted now."""
     return _now() + dt.timedelta(days=settings.refresh_token_ttl_days)
 
 

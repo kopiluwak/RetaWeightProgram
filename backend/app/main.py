@@ -1,4 +1,8 @@
-"""FastAPI application entrypoint (Increment 1: auth + onboarding)."""
+"""FastAPI application entrypoint.
+
+Wires all feature routers onto one app, runs the DB bootstrap on startup,
+and serves the static privacy/support pages required for App Store review.
+"""
 from __future__ import annotations
 from fastapi.responses import HTMLResponse
 
@@ -9,7 +13,7 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .database import init_models
-from .routers import analytics, auth, inventory, nutrition, onboarding, programs, workouts
+from .routers import analytics, auth, gamification, inventory, nutrition, onboarding, programs, workouts
 
 logging.basicConfig(level=logging.INFO)
 settings = get_settings()
@@ -30,10 +34,12 @@ app.include_router(programs.router)
 app.include_router(workouts.router)
 app.include_router(analytics.router)
 app.include_router(nutrition.router)
+app.include_router(gamification.router)
 
 
 @app.get("/health", tags=["meta"])
 async def health():
+    """Liveness probe used by the deploy pipeline and load balancer."""
     return {"status": "ok", "environment": settings.environment}
 
 
@@ -74,9 +80,11 @@ _SUPPORT_HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 async def privacy():
+    """Public privacy policy page (linked from the App Store listing)."""
     return _PRIVACY_HTML
 
 
 @app.get("/support", response_class=HTMLResponse, include_in_schema=False)
 async def support():
+    """Public support/contact page (linked from the App Store listing)."""
     return _SUPPORT_HTML

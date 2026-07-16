@@ -21,6 +21,7 @@ router = APIRouter(tags=["onboarding"])
 
 
 def _habits_out(h: UserHabits | None) -> HabitsOut | None:
+    """Map the ORM habits row to its response schema (None passes through)."""
     if h is None:
         return None
     return HabitsOut(
@@ -36,6 +37,7 @@ async def me(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Current user's profile + habits (the app's post-login bootstrap call)."""
     habits = (await db.execute(
         select(UserHabits).where(UserHabits.user_id == user.id)
     )).scalar_one_or_none()
@@ -54,6 +56,7 @@ async def set_habits(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create or update the user's habits; marks onboarding complete."""
     habits = (await db.execute(
         select(UserHabits).where(UserHabits.user_id == user.id)
     )).scalar_one_or_none()
