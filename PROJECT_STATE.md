@@ -113,13 +113,100 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   `npx expo start` on the existing dev build is enough to test. `tsc --noEmit`
   clean; backend py_compile + unit tests pass.
 
+- **Couch-to-Weights beginner mode (2026-07-23, backend live + confirmed working,
+  mobile built `tsc` clean but NOT yet in a shipped TestFlight build):** progressive
+  onboarding — a beginner keeps their 3/4/5-day split but each day starts at ONE
+  exercise and reveals one more per calendar week (6-week ramp, `LADDER_MAX=6`), with
+  an explicit "Add it / Not yet" card, warm skip/nudge accountability, and +1-only
+  catch-up. Spec: `COUCH_TO_WEIGHTS_SPEC.md`.
+  Backend: pure module `couch.py` (per-day reveal, clock/target math, coach copy;
+  unit-tested in `tests/test_couch.py` — `python3 -m tests.test_couch`), two
+  endpoints on the programs router (`GET /programs/couch`, `POST /programs/couch/advance`),
+  onboarding inits ramp state when `experience=="beginner"` and `/me`'s habits gain a
+  `couch` object. New `beginner` experience value maps to the engine's `conservative`
+  band (no engine change). Six new `user_habits` columns (`couch_*`) via
+  `_COLUMN_BOOTSTRAP` idempotent ALTERs — no manual DB step.
+  Mobile (JS-only, no new deps): `OnboardingScreen` experience chips split
+  (`beginner` "New to lifting — ease me in" + relabeled `conservative`
+  "Returning / cautious"); new `CouchProgramScreen` (headline + `unlocked/full`
+  progress bar, coach message, Add-it/Not-yet decision card, added-this-week
+  celebration, graduation handoff, day tabs of revealed exercises — hands the
+  workout logger the real program id with only revealed days); `CouchApi` +
+  `CouchState`/`CouchView` types in `api.ts`; `App.tsx` routes beginners to the
+  Couch screen until `couch.graduated`. Next: simulator pass (runbook §B, both
+  themes) then bump `ios.buildNumber` for TestFlight.
+
+- **Program/inventory UX additions (2026-07-23, backend + mobile built `tsc`
+  clean, NOT yet shipped):** four features layered on the above.
+  (1) **Persistent Home nav** — `src/NavContext.tsx` provides `goHome`; wrapped
+  around the authenticated app in `App.tsx`; `ScreenBackground` renders a top-right
+  "⌂ Home" pill on every in-app screen (Home opts out via `showHome={false}`).
+  (2) **Manage program** — new `POST /programs/couch/restart` (rewind ramp to
+  Week 1, sets `experience=beginner`, re-arms Couch; workout logs untouched) and
+  `POST /programs/couch/graduate` (jump to full program). Surfaced as a "Manage
+  program" card on both `ProgramScreen` and `CouchProgramScreen` (Regenerate,
+  Customize equipment, Add equipment, Restart/Graduate). ProgramScreen's
+  `onModeChanged` makes the shell re-read `/me` and switch to the beginner view
+  after a restart.
+  (3) **Equipment customization** — `POST /programs/generate` now accepts
+  `bodyweight_only` + `equipment_types`, persisted on two new `user_habits`
+  columns (`gen_bodyweight_only`, `gen_equipment_types` JSONB) via
+  `_COLUMN_BOOTSTRAP`. Bodyweight-only no longer requires a confirmed inventory
+  (program `inventory_version_id` nullable in that case). New
+  `CustomizationScreen` (per-type toggles + bodyweight switch). `ProgramApi.generate`
+  now takes an opts object `{daysPerWeek, bodyweightOnly, equipmentTypes}`.
+  (4) **Incremental scan-to-add** — `POST /inventory/capture` gains `mode`
+  (`replace` default | `add`); `add` merges recognized items into the current
+  confirmed inventory (duplicate type bumps quantity) and routes through the same
+  confirm screen. `CaptureScreen` takes a `mode` prop; reachable from the Manage
+  card. JS-only mobile, no new deps.
+
+- **Program engine → Push/Pull/Legs split (2026-07-23, backend built, NOT deployed):**
+  `engine.py` templates rebuilt so every training day targets a distinct primary
+  muscle (fixes the beginner reveal showing 2 leg / 2 chest days). 3-day = Push /
+  Pull / Legs; 4-day adds Shoulders & Arms; 5-day = Push / Pull / Legs / Shoulders /
+  Arms. Slot order is significant: primary compound first, paired muscle second
+  (triceps on push, biceps on pull), so beginner Week-1 = one distinct primary per
+  day and Week-2 = chest+triceps / back+biceps / legs. `couch.py` reveal now follows
+  the engine's authored slot order (removed the compounds-first re-sort) so the
+  pairing is preserved; `tests/test_couch.py` updated (`test_reveal_follows_authored_order`).
+
+- **Add-your-own-exercise (2026-07-27, backend + mobile built `tsc`/tests clean,
+  NOT yet deployed/shipped):** two ways to add a movement to the active program,
+  each landing on the correct muscle-group day and immediately loggable (the
+  workout logger reads `plan_json.days[i].exercises`, so no logger change needed).
+  (1) **Pick a specific one** — choose a known movement (pull-up, push-up,
+  isolation curl, …) from the library. (2) **Saw it on social media** — free text;
+  resolved AI-last (fuzzy library match first, Bedrock classifier only on a miss)
+  into muscle group + compound flag + a short form cue, with a suggested day the
+  user can override. Backend: pure module `custom_exercise.py` (library search,
+  `best_day_index` muscle→day matching by existing-day content + day-name keywords,
+  plan add/remove helpers, forced-tool Bedrock classifier + deterministic stub via
+  `settings.vision_provider`, mirrors `neutron_parse.py`; unit-tested in
+  `tests/test_custom_exercise.py` — `python3 -m tests.test_custom_exercise`).
+  New `ProgramExercise.added_by_user` bool (default False, so pre-existing stored
+  programs still parse). Four static routes added to the programs router BEFORE the
+  `/{program_id}` catch-all: `GET /programs/exercise-library`,
+  `POST /programs/exercises/{classify,add,remove}` (mutations use
+  `flag_modified(program, "plan_json")` since the JSON dict is edited in place).
+  Mobile (JS-only, no new deps): new `AddExerciseScreen` (library picker with
+  search/muscle filter + social-suggest text→classify→confirm-day flow),
+  "Add an exercise" button on ProgramScreen's Manage card, an "added" badge +
+  Remove control on user-added exercise cards, `App.tsx` route `addExercise`,
+  `ProgramApi.{exerciseLibrary,classifyExercise,addExercise,removeExercise}` in
+  `api.ts`. Couch/beginner screen intentionally not wired (they graduate into the
+  full ProgramScreen). Next: simulator pass (runbook §B, both themes).
+
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` · `/habits*` ·
 `/inventory` (capture, {id}/confirm, edit) · `/programs` (generate, current, {id}) ·
 `/workouts` (start, {id}/log, {id}/finish, history, last-performance) ·
 `/analytics` (summary, exercises, exercises/{name}, history) ·
 `/nutrition` (profile, weight, pantry/scan, pantry, recipes/{generate,adapt,surprise,saved},
-parse, log, summary, marketplace) · `/gamification/summary` · `/health` · `/privacy` · `/support`
+parse, log, summary, marketplace) · `/gamification/summary` ·
+`/programs/couch` (GET, advance, restart, graduate) ·
+`/programs/exercise-library` · `/programs/exercises` (classify, add, remove) ·
+`/health` · `/privacy` · `/support`
 
 ## Known pending items (open)
 1. Backend still has diagnostic `_log.warning` lines in `recognition.py` — remove before launch.

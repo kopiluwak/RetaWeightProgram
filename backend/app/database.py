@@ -32,6 +32,16 @@ _COLUMN_BOOTSTRAP = [
     # Added 2026-07-13 (gamification / configurable protein multiplier):
     "ALTER TABLE nutrition_profiles ADD COLUMN protein_multiplier "
     "FLOAT NOT NULL DEFAULT 1.52",
+    # Added 2026-07-23 (Couch-to-Weights beginner progressive onboarding):
+    "ALTER TABLE user_habits ADD COLUMN couch_mode BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE user_habits ADD COLUMN couch_started_at TIMESTAMPTZ",
+    "ALTER TABLE user_habits ADD COLUMN couch_unlocked INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE user_habits ADD COLUMN couch_snoozed_week INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE user_habits ADD COLUMN couch_consecutive_skips INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE user_habits ADD COLUMN couch_graduated BOOLEAN NOT NULL DEFAULT false",
+    # Added 2026-07-23 (equipment customization for program generation):
+    "ALTER TABLE user_habits ADD COLUMN gen_bodyweight_only BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE user_habits ADD COLUMN gen_equipment_types JSONB",
 ]
 
 

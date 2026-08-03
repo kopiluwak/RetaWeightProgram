@@ -107,6 +107,24 @@ class UserHabits(Base):
         DateTime(timezone=True), default=_now, onupdate=_now, nullable=False
     )
 
+    # --- Couch-to-Weights (beginner progressive onboarding; see COUCH_TO_WEIGHTS_SPEC.md) ---
+    # Per-user, not per-program, so the ramp survives program regeneration.
+    couch_mode: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    couch_started_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Exercises revealed PER DAY right now (Week 1 -> 1).
+    couch_unlocked: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # The `week` number in which the user last tapped "Not yet" (snoozes prompts that
+    # week only). 0 = never.
+    couch_snoozed_week: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    couch_consecutive_skips: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    couch_graduated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # --- Program-generation preferences (equipment customization) ---
+    # bodyweight_only ignores all equipment; gen_equipment_types (null = use ALL
+    # owned types) restricts generation to a chosen subset of equipment types.
+    gen_bodyweight_only: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    gen_equipment_types: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
     user: Mapped[User] = relationship(back_populates="habits")
 
 

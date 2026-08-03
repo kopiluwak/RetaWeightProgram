@@ -175,6 +175,14 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
    instead. Any new drawing/canvas work: same substrate, and verify on the simulator (section B)
    before pushing.
 
+10a. **FastAPI route ordering: static paths before dynamic.** `GET /programs/couch`
+    returned 404 "Program not found" because a dynamic `GET /programs/{program_id}`
+    was declared *before* it and captured `couch` as an id. Symptom on device: the
+    beginner "Your Plan / Program not found" screen with a dead Retry. Rule: in a
+    router, declare every static route (`/couch`, `/couch/advance`, …) BEFORE any
+    `/{param}` catch-all — the `/{program_id}` handler now lives at the bottom of
+    `routers/programs.py` on purpose.
+
 10. **app.json config plugins DON'T apply to EAS builds — this is a bare project.**
     `mobile/ios/` exists (created by `expo run:ios`), so EAS builds the native
     project as-is and never runs prebuild; plugin entries in `app.json` (e.g.

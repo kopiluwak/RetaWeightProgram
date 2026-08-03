@@ -79,6 +79,17 @@ def _validate_items(items: list[EquipmentItemIn]) -> None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Unknown equipment type: {it.type}")
 
 
+async def _current_confirmed_items(db: AsyncSession, user_id: str) -> list[EquipmentItem]:
+    """Items of the user's active (latest confirmed) inventory, or [] if none."""
+    version = (await db.execute(
+        select(InventoryVersion)
+        .where(InventoryVersion.user_id == user_id, InventoryVersion.status == "confirmed")
+        .order_by(InventoryVersion.version_no.desc())
+        .options(selectinload(InventoryVersion.items))
+    )).scalars().first()
+    return list(version.items) if version else []
+
+
 async def _supersede_confirmed(db: AsyncSession, user_id: str) -> None:
     """Mark all currently-confirmed versions superseded (a new one takes over)."""
     prior = (await db.execute(
@@ -94,17 +105,26 @@ async def _supersede_confirmed(db: AsyncSession, user_id: str) -> None:
 async def capture(
     images: list[UploadFile] = File(...),
     consent_to_train: bool = Form(False),
+    mode: str = Form("replace"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
     """Run recognition on uploaded photos and return a DRAFT inventory version.
 
+    `mode="replace"` (default) drafts only the newly recognized items — a full
+    rescan. `mode="add"` merges the recognized items INTO the current confirmed
+    inventory: an item whose type already exists bumps that type's quantity,
+    otherwise it's appended. Either way the draft goes to the same confirm screen,
+    so nothing becomes canonical until the user confirms.
+
     Photos are persisted (and the flywheel record kept) only with explicit
     consent; otherwise they are processed in memory and discarded.
     """
     if not images:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "At least one image required")
+    if mode not in ("replace", "add"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "mode must be 'replace' or 'add'")
 
     raw = [await img.read() for img in images]
 
@@ -114,16 +134,39 @@ async def capture(
     # Draft version (unconfirmed) from the recognition result.
     version = InventoryVersion(
         user_id=user.id, version_no=await _next_version_no(db, user.id),
-        status="draft", source="photo",
+        status="draft", source=("photo_add" if mode == "add" else "photo"),
     )
     db.add(version)
     await db.flush()
+
+    # Build the draft item set. In "add" mode we seed from the current confirmed
+    # inventory (kept, quantities preserved), then merge recognized items in.
+    merged: dict[str, dict] = {}
+    order: list[str] = []
+    if mode == "add":
+        for it in await _current_confirmed_items(db, user.id):
+            merged[it.type] = dict(
+                type=it.type, quantity=it.quantity, load_min=it.load_min,
+                load_max=it.load_max, load_increment=it.load_increment,
+                attributes=it.attributes, confidence=None,
+            )
+            order.append(it.type)
     for r in result.items:
-        db.add(EquipmentItem(
-            version_id=version.id, type=r.type.value, quantity=r.quantity,
-            load_min=r.load_min, load_max=r.load_max, load_increment=r.load_increment,
-            attributes=r.attributes, confidence=r.confidence, confirmed=False,
-        ))
+        t = r.type.value
+        if t in merged:
+            merged[t]["quantity"] += r.quantity  # duplicate type -> bump quantity
+            # Keep existing load info; adopt recognized load only where missing.
+            for k in ("load_min", "load_max", "load_increment"):
+                if merged[t][k] is None:
+                    merged[t][k] = getattr(r, k)
+        else:
+            merged[t] = dict(
+                type=t, quantity=r.quantity, load_min=r.load_min, load_max=r.load_max,
+                load_increment=r.load_increment, attributes=r.attributes, confidence=r.confidence,
+            )
+            order.append(t)
+    for t in order:
+        db.add(EquipmentItem(version_id=version.id, confirmed=False, **merged[t]))
 
     # Flywheel + image persistence — ONLY if the user consented (F8 / R1a).
     image_keys: list[str] = []

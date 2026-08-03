@@ -40,23 +40,33 @@ _COMPOUND_REST = 150
 _ACCESSORY_REST = 75
 
 # Slot = (pattern, base_sets_at_intermediate, is_compound)
-_THREE_DAY = [
-    ("Full Body A — Squat focus", [(ex.SQUAT, 3, True), (ex.H_PRESS, 3, True), (ex.H_PULL, 3, True), (ex.V_PRESS, 2, True), (ex.CORE_P, 2, False)]),
-    ("Full Body B — Hinge focus", [(ex.HINGE, 3, True), (ex.V_PULL, 3, True), (ex.INCLINE_PRESS, 3, True), (ex.CURL, 2, False), (ex.TRI, 2, False)]),
-    ("Full Body C — Mixed", [(ex.SQUAT, 2, True), (ex.LUNGE, 2, True), (ex.H_PULL, 3, True), (ex.V_PRESS, 2, True), (ex.CALF, 2, False)]),
-]
+# Push/Pull/Legs orientation: each training day targets a distinct primary muscle
+# group so no two days repeat (fixes "2 leg days / 2 chest days"). Slot ORDER is
+# meaningful — the first slot is the day's primary compound, and the second is the
+# paired secondary muscle (triceps on a push day, biceps on a pull day). The
+# beginner reveal (couch.py) shows exercises in this order, so a 1-exercise day is
+# the primary lift and a 2-exercise day is the intended push/pull pairing.
+_PUSH = ("Push — Chest, Shoulders & Triceps",
+         [(ex.H_PRESS, 3, True), (ex.TRI, 2, False), (ex.V_PRESS, 3, True), (ex.INCLINE_PRESS, 2, True), (ex.LATERAL, 2, False)])
+_PULL = ("Pull — Back & Biceps",
+         [(ex.H_PULL, 3, True), (ex.CURL, 2, False), (ex.V_PULL, 3, True), (ex.CORE_P, 2, False)])
+_LEGS = ("Legs — Quads, Hamstrings & Calves",
+         [(ex.SQUAT, 3, True), (ex.HINGE, 3, True), (ex.LUNGE, 2, True), (ex.CALF, 2, False), (ex.CORE_P, 2, False)])
+
+_THREE_DAY = [_PUSH, _PULL, _LEGS]
 _FOUR_DAY = [
-    ("Upper A", [(ex.H_PRESS, 3, True), (ex.H_PULL, 3, True), (ex.V_PRESS, 3, True), (ex.V_PULL, 3, True), (ex.CURL, 2, False), (ex.TRI, 2, False)]),
-    ("Lower A", [(ex.SQUAT, 4, True), (ex.HINGE, 3, True), (ex.LUNGE, 3, True), (ex.CALF, 3, False), (ex.CORE_P, 2, False)]),
-    ("Upper B", [(ex.INCLINE_PRESS, 3, True), (ex.V_PULL, 3, True), (ex.H_PULL, 3, True), (ex.LATERAL, 3, False), (ex.TRI, 2, False), (ex.CURL, 2, False)]),
-    ("Lower B", [(ex.HINGE, 4, True), (ex.SQUAT, 3, True), (ex.LUNGE, 3, True), (ex.CALF, 3, False), (ex.CORE_P, 2, False)]),
+    _PUSH, _PULL, _LEGS,
+    ("Shoulders & Arms", [(ex.V_PRESS, 3, True), (ex.LATERAL, 2, False), (ex.CURL, 2, False), (ex.TRI, 2, False)]),
 ]
 _FIVE_DAY = [
-    ("Upper", [(ex.H_PRESS, 3, True), (ex.H_PULL, 3, True), (ex.V_PRESS, 3, True), (ex.V_PULL, 3, True), (ex.CURL, 2, False), (ex.TRI, 2, False)]),
-    ("Lower", [(ex.SQUAT, 4, True), (ex.HINGE, 3, True), (ex.LUNGE, 3, True), (ex.CALF, 3, False), (ex.CORE_P, 2, False)]),
-    ("Push", [(ex.INCLINE_PRESS, 4, True), (ex.V_PRESS, 3, True), (ex.LATERAL, 3, False), (ex.TRI, 3, False)]),
-    ("Pull", [(ex.V_PULL, 4, True), (ex.H_PULL, 4, True), (ex.CURL, 3, False), (ex.CORE_P, 2, False)]),
-    ("Legs", [(ex.HINGE, 4, True), (ex.SQUAT, 4, True), (ex.LUNGE, 3, True), (ex.CALF, 3, False)]),
+    ("Push — Chest, Shoulders & Triceps",
+     [(ex.H_PRESS, 4, True), (ex.TRI, 3, False), (ex.V_PRESS, 3, True), (ex.INCLINE_PRESS, 2, True), (ex.LATERAL, 2, False)]),
+    ("Pull — Back & Biceps",
+     [(ex.H_PULL, 4, True), (ex.CURL, 3, False), (ex.V_PULL, 3, True), (ex.CORE_P, 2, False)]),
+    ("Legs — Quads, Hamstrings & Calves",
+     [(ex.SQUAT, 4, True), (ex.HINGE, 3, True), (ex.LUNGE, 3, True), (ex.CALF, 3, False)]),
+    ("Shoulders", [(ex.V_PRESS, 4, True), (ex.LATERAL, 3, False), (ex.TRI, 2, False)]),
+    ("Arms — Biceps & Triceps", [(ex.CURL, 3, False), (ex.TRI, 3, False), (ex.LATERAL, 2, False)]),
 ]
 _TEMPLATES = {3: _THREE_DAY, 4: _FOUR_DAY, 5: _FIVE_DAY}
 
@@ -83,6 +93,9 @@ class ProgramExercise:
     description: str = ""
     video_url: str = ""
     rest_seconds: int = 90
+    # True when the user manually added this movement (library pick or a
+    # social-media suggestion), as opposed to the generator authoring it.
+    added_by_user: bool = False
 
 
 @dataclass

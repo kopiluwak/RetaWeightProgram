@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import abc
 import asyncio
-
+import logging
 
 from pydantic import BaseModel, Field
 
 from .equipment import EquipmentType, is_valid_type
+
+_log = logging.getLogger(__name__)
 
 
 class RecognizedItem(BaseModel):
@@ -202,7 +204,10 @@ class BedrockClaudeRecognizer(EquipmentRecognizer):
     def __init__(self, settings):
         import boto3  # imported lazily so the stub path needs no AWS deps
         self._model_id = settings.bedrock_model_id
-        self._max_tokens = settings.bedrock_max_tokens
+        # Floor at 4096: with 3-4 photos the forced tool call's item list can
+        # exceed 1024 output tokens; truncated JSON parses to 0 items (same
+        # lesson as neutron_vision/neutron_recipes — runbook gotcha #6).
+        self._max_tokens = max(settings.bedrock_max_tokens, 4096)
         self.name = f"bedrock:{settings.bedrock_model_id}"
         self._client = boto3.client("bedrock-runtime", region_name=settings.aws_region)
 
@@ -226,7 +231,13 @@ class BedrockClaudeRecognizer(EquipmentRecognizer):
     async def recognize(self, image_bytes: list[bytes]) -> RecognitionResult:
         imgs = image_bytes[:4]  # cap payload — Bedrock returns nothing if combined images are too large
         response = await asyncio.to_thread(self._invoke, imgs)
-        return parse_converse_tool_output(response, self.name)
+        result = parse_converse_tool_output(response, self.name)
+        if not result.items:
+            _log.warning(
+                "equipment recognition parsed 0 items: images=%d stopReason=%s",
+                len(imgs), response.get("stopReason"),
+            )
+        return result
 
 
 _recognizer: EquipmentRecognizer | None = None

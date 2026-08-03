@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 470" width="520" height="470" role="img" aria-label="GLP Steel">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;900&amp;display=swap');
+      .wm  { font-family: 'Archivo','Helvetica Neue',Arial,sans-serif; font-weight: 900; letter-spacing: 1px; }
+      .tag { font-family: 'Archivo','Helvetica Neue',Arial,sans-serif; font-weight: 600; letter-spacing: 7px; }
+    </style>
+  </defs>
+  <g transform="translate(130,20)">
+    <rect x="30" y="50" width="200" height="200" rx="42" fill="#14171C"/>
+    <rect x="72" y="146" width="23" height="8" rx="4" fill="#F5F6F8"/>
+    <rect x="165" y="146" width="23" height="8" rx="4" fill="#F5F6F8"/>
+    <rect x="95" y="144" width="70" height="12" rx="6" fill="#F5F6F8"/>
+    <rect x="86" y="110" width="18" height="80" rx="7" fill="#F5F6F8"/>
+    <rect x="156" y="110" width="18" height="80" rx="7" fill="#F5F6F8"/>
+    <rect x="63" y="124" width="14" height="52" rx="5" fill="#E0592A"/>
+    <rect x="183" y="124" width="14" height="52" rx="5" fill="#E0592A"/>
+  </g>
+  <text x="260" y="365" text-anchor="middle" class="wm" font-size="92">
+    <tspan fill="#E0592A">GLP</tspan><tspan fill="#14171C"> STEEL</tspan>
+  </text>
+  <text x="262" y="405" text-anchor="middle" class="tag" font-size="18" fill="#7C8794">GAINS THROUGH THE LOSS</text>
+</svg>

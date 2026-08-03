@@ -18,6 +18,7 @@
   <meta property="og:url" content="https://glpsteel.com" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="canonical" href="https://glpsteel.com" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' rx='44' fill='%2314171C'/%3E%3Crect x='42' y='96' width='23' height='8' rx='4' fill='%23F5F6F8'/%3E%3Crect x='135' y='96' width='23' height='8' rx='4' fill='%23F5F6F8'/%3E%3Crect x='65' y='94' width='70' height='12' rx='6' fill='%23F5F6F8'/%3E%3Crect x='56' y='60' width='18' height='80' rx='7' fill='%23F5F6F8'/%3E%3Crect x='126' y='60' width='18' height='80' rx='7' fill='%23F5F6F8'/%3E%3Crect x='33' y='74' width='14' height='52' rx='5' fill='%23E0592A'/%3E%3Crect x='153' y='74' width='14' height='52' rx='5' fill='%23E0592A'/%3E%3C/svg%3E" />
   <script>
     // Set theme before paint to avoid flash
     (function () {
@@ -33,8 +34,8 @@
       theme: {
         extend: {
           colors: {
-            steel: { 50:'#f7f8fa',100:'#eef0f4',200:'#d9dde5',300:'#b7bfcc',400:'#8f9aae',500:'#6f7b93',600:'#59637a',700:'#485063',800:'#3e4554',900:'#141821',950:'#0b0e14' },
-            ember: { 300:'#ffc861',400:'#ffab2e',500:'#ff8a00',600:'#e06f00' }
+            steel: { 50:'#f5f6f8',100:'#eef0f4',200:'#d9dde5',300:'#b7bfcc',400:'#7c8794',500:'#6f7b93',600:'#59637a',700:'#485063',800:'#2b3140',900:'#14171c',950:'#0e1013' },
+            ember: { 300:'#f4a985',400:'#ea7d52',500:'#e0592a',600:'#b8451e',700:'#963715' }
           },
           fontFamily: { sans: ['ui-sans-serif','system-ui','-apple-system','Segoe UI','Roboto','Helvetica Neue','Arial','sans-serif'] }
         }
@@ -61,8 +62,12 @@
   <header class="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-steel-950/80 border-b border-steel-200 dark:border-steel-800/60">
     <nav class="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between" aria-label="Main">
       <a href="#top" class="flex items-center gap-2 font-extrabold text-lg tracking-tight">
-        <svg class="w-7 h-7 text-ember-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-          <path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="4.5" y="11.15" width="15" height="1.7" rx="0.85" fill="currentColor"/>
+          <rect x="6.7" y="8" width="2.4" height="8" rx="0.9" fill="currentColor"/>
+          <rect x="14.9" y="8" width="2.4" height="8" rx="0.9" fill="currentColor"/>
+          <rect x="3.9" y="9.3" width="1.8" height="5.4" rx="0.7" fill="#e0592a"/>
+          <rect x="18.3" y="9.3" width="1.8" height="5.4" rx="0.7" fill="#e0592a"/>
         </svg>
         GLP <span class="text-gradient">Steel</span>
       </a>
@@ -122,6 +127,10 @@
               <div class="flex items-center justify-between">
                 <span class="text-xs font-semibold text-steel-400">TODAY · DAY 2 OF 4</span>
                 <span class="text-xs font-bold text-ember-400">🔥 12-day streak</span>
+              </div>
+              <div class="rounded-2xl bg-steel-900 p-3 border border-steel-800">
+                <div class="flex justify-between text-[11px] text-steel-400"><span class="font-bold text-white">Level 7</span><span>320 / 500 XP</span></div>
+                <div class="mt-1.5 h-1.5 rounded-full bg-steel-800 overflow-hidden"><div class="h-full w-[64%] bg-gradient-to-r from-ember-400 to-ember-600 rounded-full"></div></div>
               </div>
               <div class="rounded-2xl bg-steel-900 p-4 border border-steel-800">
                 <p class="text-[10px] font-bold text-ember-500 tracking-widest">NOW LOGGING</p>
@@ -204,9 +213,21 @@
           </div>
 
           <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="flex items-center gap-2 mb-4"><div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16M6 20V10m4 10V7m4 13V4m4 16v-6"/></svg></div><span class="text-[10px] font-bold tracking-widest text-ember-500 bg-ember-500/10 rounded-full px-2 py-0.5">NEW</span></div>
+            <h3 class="font-bold text-lg">Couch-to-Weights mode</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Brand new to lifting? Start with a single exercise a day — 8 to 15 minutes — and unlock one more each week over a gentle 6-week ramp. Warm, no-pressure accountability instead of a wall of exercises on day one.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
             <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 3h6M10 3v4l-4.5 8.5A4 4 0 0 0 9 21h6a4 4 0 0 0 3.5-5.5L14 7V3"/></svg></div>
             <h3 class="font-bold text-lg">Science-backed programs</h3>
-            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">3, 4, or 5-day plans engineered for muscle preservation in a deficit: smart intensity targets, effort-based sets (RIR), automatic progression, and deload guidance. Every exercise includes a how-to video.</p>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">True Push / Pull / Legs splits over 3, 4, or 5 days, engineered for muscle preservation in a deficit: smart intensity, effort-based sets (RIR), automatic progression, and deload guidance. Every exercise has a how-to video.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="flex items-center gap-2 mb-4"><div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><path d="M12 7.4V14m-5-4 5 1 5-1M8 21l4-7 4 7"/></svg></div><span class="text-[10px] font-bold tracking-widest text-ember-500 bg-ember-500/10 rounded-full px-2 py-0.5">NEW</span></div>
+            <h3 class="font-bold text-lg">Bodyweight or full gym</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">No equipment? Switch on bodyweight-only and get a full program with nothing to buy. Or pick exactly which gear to train with. Bought a barbell or moved house? Scan-to-add merges new equipment into your plan.</p>
           </div>
 
           <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
@@ -216,15 +237,21 @@
           </div>
 
           <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
+            <div class="flex items-center gap-2 mb-4"><div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4m-3 0h6"/></svg></div><span class="text-[10px] font-bold tracking-widest text-ember-500 bg-ember-500/10 rounded-full px-2 py-0.5">NEW</span></div>
+            <h3 class="font-bold text-lg">Log a meal by voice</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Just say what you ate — "two eggs and a protein shake" — and get an instant protein estimate. On-device speech and a built-in food database mean it's fast, works offline, and only asks the AI for the tricky phrases.</p>
+          </div>
+
+          <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
             <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg></div>
             <h3 class="font-bold text-lg">Progress you can see</h3>
             <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Strength trends, estimated one-rep-max curves, PR detection, plateau alerts, and a training heatmap. Watch your strength hold — or climb — while the scale drops.</p>
           </div>
 
           <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
-            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 21h8m-4-4v4M5 4h14v4a7 7 0 0 1-14 0V4Z"/><path d="M5 6H3a2 2 0 0 0 2 4m14-4h2a2 2 0 0 1-2 4"/></svg></div>
-            <h3 class="font-bold text-lg">Streaks, PRs &amp; wins</h3>
-            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Streaks, badges, and shareable PR cards keep you coming back. Small wins, logged and celebrated — because consistency is what preserves muscle.</p>
+            <div class="w-11 h-11 rounded-xl bg-ember-500/15 text-ember-500 flex items-center justify-center mb-4"><svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.9 6.7 19.1l1-5.8-4.2-4.1 5.9-.9L12 3Z"/></svg></div>
+            <h3 class="font-bold text-lg">Levels, streaks &amp; challenges</h3>
+            <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Earn XP and levels for every workout and protein goal hit, keep a weekly streak alive, take on a fresh weekly challenge, and unlock achievements. Shareable PR cards celebrate the wins that keep you consistent.</p>
           </div>
 
           <div class="reveal rounded-2xl bg-white dark:bg-steel-900 border border-steel-200 dark:border-steel-800 p-6 hover:border-ember-500/60 transition-colors">
@@ -251,7 +278,7 @@
         <li class="reveal relative">
           <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">2</span>
           <h3 class="font-bold text-lg -mt-3">Set your week</h3>
-          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Tell us your days per week, session length, and experience. Get a 3, 4, or 5-day plan that fits your life.</p>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Tell us your days per week, session length, and experience. Get a 3, 4, or 5-day plan that fits your life — or ease in with Couch-to-Weights if you're brand new.</p>
         </li>
         <li class="reveal relative">
           <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">3</span>
@@ -261,7 +288,7 @@
         <li class="reveal relative">
           <span class="text-6xl font-extrabold text-steel-200 dark:text-steel-800 select-none" aria-hidden="true">4</span>
           <h3 class="font-bold text-lg -mt-3">Eat for muscle</h3>
-          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Snap your fridge, get high-protein recipes and a shopping list. Hit your protein target even with a GLP-1 appetite.</p>
+          <p class="mt-2 text-sm text-steel-600 dark:text-steel-400">Snap your fridge for high-protein recipes, then log meals by voice in seconds. Hit your protein target even with a GLP-1 appetite.</p>
         </li>
       </ol>
     </section>
@@ -323,7 +350,8 @@
             <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Equipment scan + full 3/4/5-day program generation</li>
             <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Unlimited workout logging, progression &amp; rest timers</li>
             <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Strength analytics: trends, PRs, plateau alerts, heatmap</li>
-            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>High-protein recipe engine, protein tracking &amp; shopping lists</li>
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>High-protein recipe engine, voice meal logging &amp; shopping lists</li>
+            <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Couch-to-Weights beginner mode, levels, streaks &amp; challenges</li>
             <li class="flex gap-3"><svg class="w-5 h-5 text-ember-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>All future updates included</li>
           </ul>
           <div class="mt-6 rounded-xl bg-steel-50 dark:bg-steel-800/60 p-4 text-sm text-steel-600 dark:text-steel-300">
@@ -379,7 +407,15 @@
               I'm a complete beginner. Will I know what to do?
               <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
             </summary>
-            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Yes. Every exercise includes a plain-English description and a how-to video. Sessions guide you set by set with rest timers and pre-filled weights, and the app tells you exactly when to add weight or reps.</p>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Yes — and there's a mode built for exactly this. <strong class="text-steel-900 dark:text-white">Couch-to-Weights</strong> starts you with a single exercise a day (8–15 minutes) and adds just one more each week over 6 weeks, so you're never overwhelmed. Every exercise has a plain-English description and a how-to video, sessions guide you set by set with rest timers and pre-filled weights, and the app tells you exactly when to add weight or reps.</p>
+          </details>
+
+          <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
+            <summary class="flex items-center justify-between gap-4 py-4 cursor-pointer font-semibold list-none">
+              Can I train with no equipment at all?
+              <svg class="chev w-5 h-5 shrink-0 text-ember-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </summary>
+            <p class="pb-5 text-sm text-steel-600 dark:text-steel-400">Yes. Flip on bodyweight-only and you'll get a full program with nothing to buy and no photo required. You can also choose exactly which equipment to include, and scan new gear in later to fold it into your plan automatically.</p>
           </details>
 
           <details class="faq reveal group rounded-xl border border-steel-200 dark:border-steel-800 bg-white dark:bg-steel-900 px-5">
@@ -428,9 +464,16 @@
     <div class="mx-auto max-w-6xl px-4 sm:px-6 py-12 grid sm:grid-cols-3 gap-10">
       <div>
         <p class="flex items-center gap-2 font-extrabold text-lg">
-          <svg class="w-6 h-6 text-ember-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="4.5" y="11.15" width="15" height="1.7" rx="0.85" fill="currentColor"/>
+            <rect x="6.7" y="8" width="2.4" height="8" rx="0.9" fill="currentColor"/>
+            <rect x="14.9" y="8" width="2.4" height="8" rx="0.9" fill="currentColor"/>
+            <rect x="3.9" y="9.3" width="1.8" height="5.4" rx="0.7" fill="#e0592a"/>
+            <rect x="18.3" y="9.3" width="1.8" height="5.4" rx="0.7" fill="#e0592a"/>
+          </svg>
           GLP <span class="text-gradient">Steel</span>
         </p>
+        <p class="mt-2 text-[11px] font-semibold tracking-[0.35em] uppercase text-steel-500 dark:text-steel-500">Gains Through the Loss</p>
         <p class="mt-3 text-sm text-steel-500 dark:text-steel-400 max-w-xs">Strength and nutrition for the GLP-1 era. Keep the muscle. Lose the weight.</p>
       </div>
       <nav class="text-sm space-y-2" aria-label="Footer product">
