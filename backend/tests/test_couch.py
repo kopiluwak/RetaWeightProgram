@@ -165,6 +165,29 @@ def test_just_added_and_skipped_copy() -> None:
     assert "consistency first" in skipped
 
 
+def test_user_added_exercise_always_shown_and_not_in_ramp() -> None:
+    # Week-1 beginner (unlocked=1) with a user-added movement on Day 1.
+    prog = _program(days=2, per_day=3)
+    added = {**_ex("Preacher Curl", False, 3), "added_by_user": True}
+    prog["days"][0]["exercises"].append(added)
+
+    # Ramp length ignores the added exercise (still 3, not 4).
+    assert program_full(prog) == 3
+
+    days = couch_days(prog, 1)
+    names0 = [e["name"] for e in days[0]["exercises"]]
+    # Day 1 shows its 1 unlocked ramp move PLUS the always-on added move.
+    assert names0 == ["D0-compound", "Preacher Curl"]
+    # Day 2 (no added move) still shows exactly its 1 unlocked move.
+    assert [e["name"] for e in days[1]["exercises"]] == ["D1-compound"]
+
+    # Coach copy's "newest" name is a ramp move, never the user-added one.
+    v = couch_view(program=prog, unlocked=1, started_at=NOW, snoozed_week=0,
+                   consecutive_skips=0, graduated=False, now=NOW + dt.timedelta(days=7))
+    assert v["added_today"] is None
+    assert "Preacher Curl" not in (v["message"] or "")
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

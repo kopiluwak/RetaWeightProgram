@@ -38,6 +38,11 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)  # optional, store-only (F6)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Optional display name captured at onboarding — used only to personalize the
+    # greeting. Nullable: pre-existing users and anyone who skips it fall back to a
+    # name derived from their email on the client.
+    name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
     # F8: training context only — NEVER the medication name.
     training_mode: Mapped[str] = mapped_column(String(40), default="deficit_preservation", nullable=False)
 
@@ -361,6 +366,21 @@ class NutritionParseCache(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     phrase_norm: Mapped[str] = mapped_column(String(200), unique=True, index=True, nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)  # ParsedFood dict
+    model_id: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+class ExerciseClassifyCache(Base):
+    """AI-last cache for the add-exercise 'saw it on social media' classifier.
+    Keyed by the NORMALIZED exercise phrase and shared across ALL users (a phrase
+    like 'bulgarian split squat' is not personal data) — each distinct phrase hits
+    Bedrock at most once, ever. Mirrors NutritionParseCache exactly."""
+
+    __tablename__ = "exercise_classify_cache"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    phrase_norm: Mapped[str] = mapped_column(String(200), unique=True, index=True, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)  # ClassifiedExercise dict
     model_id: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
 

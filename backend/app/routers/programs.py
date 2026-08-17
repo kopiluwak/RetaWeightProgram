@@ -21,7 +21,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..engine import generate_program
 from ..exercises import LIBRARY
-from ..models import InventoryVersion, Program, User, UserHabits
+from ..models import ExerciseClassifyCache, InventoryVersion, Program, User, UserHabits
 from ..schemas import (
     AddExerciseIn,
     ClassifiedExerciseOut,
@@ -327,9 +327,43 @@ async def classify_exercise(
 ):
     """Resolve free text (an exercise the user saw) into a muscle group + form
     cue, and say which day it would land on — WITHOUT adding it yet, so the user
-    can confirm or override. Library match first, Bedrock only if that misses."""
+    can confirm or override.
+
+    Resolution is AI-LAST and cached:
+      1. Fuzzy match against the known library (instant, no model call).
+      2. Else serve from `exercise_classify_cache` (shared across all users) if the
+         normalized phrase was classified before.
+      3. Else call the classifier and, in production (Bedrock), write the result
+         back — so any given phrase hits the model at most once, ever. The stub
+         provider is deterministic and NOT cached (so flipping to Bedrock later
+         can't be shadowed by a stale stub guess)."""
     program = await _active_program(db, user.id)
-    classified = await cx.classify_exercise(body.text, settings)
+
+    lib = cx.find_library_exercise(body.text)
+    if lib is not None:
+        classified = cx.exercise_to_classified(lib)
+    else:
+        norm = cx.normalize(body.text)
+        cached = None
+        if norm:
+            cached = (await db.execute(
+                select(ExerciseClassifyCache).where(ExerciseClassifyCache.phrase_norm == norm)
+            )).scalar_one_or_none()
+        if cached is not None:
+            classified = cx.ClassifiedExercise(**{**cached.payload, "source": "cache"})
+        else:
+            classifier = cx.build_classifier(settings)
+            classified = await classifier.classify(body.text)
+            # Persist real model answers only (skip the deterministic dev stub).
+            if norm and settings.vision_provider == "bedrock":
+                db.add(ExerciseClassifyCache(
+                    phrase_norm=norm, payload=classified.model_dump(), model_id=classifier.name,
+                ))
+                try:
+                    await db.commit()
+                except Exception:
+                    await db.rollback()  # concurrent insert of the same phrase — fine
+
     idx = cx.best_day_index(program.plan_json.get("days", []), classified.primary)
     days = program.plan_json.get("days", [])
     day_name = days[idx].get("name", f"Day {idx + 1}") if days else ""

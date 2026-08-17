@@ -1,7 +1,7 @@
 # WeightProgram — Project State (handoff)
 
 One-page onboarding for a new thread. Read this + `OPERATIONS_RUNBOOK.md` before working.
-Last updated: 2026-07-04.
+Last updated: 2026-08-05.
 
 ## What it is
 A mobile app that photographs a user's weights/equipment, uses a vision LLM to
@@ -37,7 +37,8 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
 - **Workout logging:** readiness check, set logging (pre-filled from last session), rest timer with
   audible beep + haptic, double-progression suggestions, history.
 - **TestFlight:** Build 3 live to internal testers; Build 2 external group in Beta App Review.
-  Reviewer login bypass: `reviewer@glpsteel.com` / code `027858` (env vars REVIEW_EMAIL/REVIEW_CODE).
+  Reviewer login bypass: `reviewer@glpsteel.com`; the code lives ONLY in the ECS task-def env var
+  `REVIEW_CODE` and is rotated per submission — never written down here. See runbook §D7.
 - **UI system (2026-07-04):** Full visual rework, no new dependencies. `mobile/src/theme.ts`
   (light/dark palettes, spacing, radius, typography via `useTheme()`) + `mobile/src/ui/` kit
   (Button, Card, Badge, Chip, ProgressBar, SetDots, Stepper, ScreenBackground). Every screen
@@ -194,8 +195,75 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   "Add an exercise" button on ProgramScreen's Manage card, an "added" badge +
   Remove control on user-added exercise cards, `App.tsx` route `addExercise`,
   `ProgramApi.{exerciseLibrary,classifyExercise,addExercise,removeExercise}` in
-  `api.ts`. Couch/beginner screen intentionally not wired (they graduate into the
-  full ProgramScreen). Next: simulator pass (runbook §B, both themes).
+  `api.ts`. Next: simulator pass (runbook §B, both themes).
+  **Beginner-mode wiring (2026-08-05 follow-up):** the "Add an exercise" choice
+  was ALSO added to CouchProgramScreen's Manage card (a beginner in Couch mode
+  never sees the full ProgramScreen, so the earlier "full screen only" wiring hid
+  the feature for beginners). `couch.py` now treats `added_by_user` exercises as
+  outside the ramp: they are ALWAYS revealed regardless of `unlocked`, and are
+  excluded from `program_full`'s longest-day count so adding one never bumps the
+  weekly target. `_newest_exercise_name` reads ramp-only exercises so coach copy
+  is unaffected. New `tests/test_couch.py::test_user_added_exercise_always_shown_
+  and_not_in_ramp`; existing couch/custom_exercise tests still pass.
+  **Classifier caching + filter fix (2026-08-06 follow-up):** (a) the muscle
+  filter in the library picker now keys off the MAIN mover (`primary[0]`) so
+  e.g. "biceps" shows only curls, not back+biceps rows (JS-only, AddExerciseScreen).
+  Note: `glutes` is no longer a filter chip — the library has no glute-PRIMARY
+  movement (glutes are only ever secondary on squats/RDLs); add a hip-thrust/glute-
+  bridge to `exercises.py` if a glutes filter is wanted. (b) The AI classifier is
+  now CACHED: new shared `exercise_classify_cache` table (mirrors
+  `nutrition_parse_cache`, auto-created on boot) keyed by normalized phrase, so a
+  given phrase hits Bedrock at most once ever across all users; only real Bedrock
+  answers are written (the dev stub is never cached, so flipping to Bedrock can't
+  be shadowed by a stale stub). Library matches never touch the model. Cache hits
+  come back with `source:"cache"`. The static library list is also cached
+  client-side (module-level promise in `api.ts`) so the picker fetches it once per
+  session. New round-trip test in `tests/test_custom_exercise.py`.
+
+- **Usability overhaul + onboarding name (2026-08-05, simulator pass done both
+  themes; mobile `tsc --noEmit` clean + backend `py_compile` clean; mobile NOT yet
+  in a shipped TestFlight build, backend NOT yet deployed):** a read-only UX review
+  turned into a batch of fixes. All mobile changes are JS-only (no new deps) EXCEPT
+  the name field, which is the only backend change this round.
+  - **Bottom tab bar** replaces the hub-and-spoke nav: new `mobile/src/ui/TabBar.tsx`
+    (+ `HomeGlyph` in `Glyphs.tsx`), rendered by `App.tsx` on the four top-level
+    screens only (Home/Program/Progress/Nutrition); focused flows (capture, workout,
+    sub-screens) hide it. Those four screens now pass `showHome={false}` (tab bar
+    supersedes the old Home pill + "Back to home" buttons).
+  - **Standardized back control:** `ScreenBackground` gained `onBack`/`backLabel`,
+    rendered as a top-left header ROW (not an absolute overlay, so it never covers a
+    title). Adopted across every sub-screen (Capture, ConfirmInventory — which had no
+    back at all before, Customization, AddExercise, ExerciseTrends, History, and the
+    nutrition sub-screens Recipes/ProteinTracker/ProteinBoosters/VoiceLog); their
+    ad-hoc bottom "Back"/"Cancel" buttons and inline top-left text links were removed.
+  - **Confirmations (`Alert`)** on destructive/expensive actions: ProgramScreen
+    regenerate / split-change / restart-as-beginner; CouchProgramScreen regenerate /
+    graduate / restart; Home sign-out; ConfirmInventory item remove; a new
+    "Cancel workout" during logging (WorkoutScreen) that warns before discarding sets.
+  - **Split vs. day tabs:** the 3/4/5-day chips moved out of the main ProgramScreen
+    flow into the "Manage program" card (behind the regenerate confirm) so they can't
+    be mistaken for the Day tabs.
+  - **Auth/onboarding:** OTP field is autofillable (`textContentType="oneTimeCode"` +
+    `autoComplete`), auto-submits at 6 digits, resend has a 30s cooldown + "code sent"
+    feedback; Email/OTP/Onboarding wrapped in `KeyboardAvoidingView`.
+  - **Copy/jargon:** new `mobile/src/labels.ts` (`prettyExperience` — Program subtitle
+    no longer shows the raw `conservative`/`beginner` enum; `RIR_HINT` gloss on the
+    logger). New `mobile/src/errors.ts` `friendlyError()` (network/5xx → actionable
+    copy) adopted across the screens touched.
+  - **Equipment type editing:** the one-at-a-time `‹ ›` cycler in ConfirmInventory is
+    now a tap-to-open modal picker.
+  - **Accessibility:** `theme.ts` `textTertiary` darkened (light) / lightened (dark)
+    for WCAG AA on captions; text-link controls bumped to 44px min targets.
+  - **Onboarding name (only backend change):** optional first-name field on
+    `OnboardingScreen` → greeting personalization (`HomeScreen` uses `me.name`, falls
+    back to the email-derived guess). Backend: new **nullable `users.name` column**
+    added by `_COLUMN_BOOTSTRAP` on boot (no manual DB step), plus `HabitsIn.name`,
+    `MeOut.name`, and `/me` + `PUT /habits` wiring (`routers/onboarding.py`). Mobile:
+    `Me.name` + `HabitsInput` in `api.ts`. **Safe to ship the app before the backend
+    deploy** — schemas don't forbid extra fields, so the current prod API ignores the
+    `name` the app sends and `/me` omits it, so the greeting cleanly falls back.
+  - Next: bump `ios.buildNumber` → TestFlight (runbook §C); deploy backend (runbook §A)
+    so the name actually persists.
 
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` · `/habits*` ·

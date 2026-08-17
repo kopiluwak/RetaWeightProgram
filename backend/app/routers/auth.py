@@ -9,6 +9,8 @@ Flow (spec F3/F4):
 from __future__ import annotations
 
 import datetime as dt
+import logging
+import secrets as _secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -30,10 +32,31 @@ from ..security import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_log = logging.getLogger(__name__)
+
 
 def _now() -> dt.datetime:
     """Timezone-aware UTC now."""
     return dt.datetime.now(dt.timezone.utc)
+
+
+# --- Reviewer-bypass throttle -------------------------------------------------
+# The bypass skips the OtpCode table entirely, so it also skips that table's
+# attempt counter and hourly rate limit. `review_code` is now required to be
+# long and random (config.Settings.MIN_REVIEW_CODE_LENGTH), which already makes
+# brute force impractical — this throttle exists so a scripted attempt is slow
+# and loud as well. In-process on purpose: it only has to outlast a burst, and
+# every attempt is logged regardless of which task handled it.
+_REVIEW_FAILURES: list[dt.datetime] = []
+_REVIEW_MAX_FAILURES = 5
+_REVIEW_LOCKOUT = dt.timedelta(minutes=15)
+
+
+def _review_locked_out() -> bool:
+    """True when too many wrong review codes were presented recently."""
+    cutoff = _now() - _REVIEW_LOCKOUT
+    _REVIEW_FAILURES[:] = [t for t in _REVIEW_FAILURES if t >= cutoff]
+    return len(_REVIEW_FAILURES) >= _REVIEW_MAX_FAILURES
 
 
 async def _issue_token_pair(db: AsyncSession, user: User, settings: Settings,
@@ -70,8 +93,13 @@ async def request_otp(
     probe which emails have accounts.
     """
     email = body.email.lower()
-    # Reviewer bypass: ensure the account exists, skip the real OTP + email send.
-    if settings.review_email and email == settings.review_email.lower():
+    # Reviewer bypass (App Store review only): ensure the account exists and skip
+    # the real OTP + email send. An unconfigured or EXPIRED bypass is not an
+    # error — it falls through to the normal OTP path below, so the review
+    # account keeps working as an ordinary account once the window closes.
+    armed, reason = settings.review_bypass_state()
+    if armed and email == settings.review_email.lower():
+        _log.warning("reviewer bypass: OTP request short-circuited (%s)", reason)
         user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         if user is None:
             db.add(User(email=email))
@@ -121,16 +149,29 @@ async def verify_otp(
 ):
     """Complete login: validate the code and issue an access/refresh pair."""
     email = body.email.lower()
-    # Reviewer bypass: accept the fixed code for the review email only.
-    if (settings.review_email and email == settings.review_email.lower()
-            and settings.review_code and body.code == settings.review_code):
-        user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
-        if user is None:
-            user = User(email=email)
-            db.add(user)
-            await db.flush()
-        user.email_verified = True
-        return await _issue_token_pair(db, user, settings)
+    # Reviewer bypass (App Store review only): accept the rotating review code for
+    # the review account. Guarded four ways — the bypass must be armed (set, long
+    # enough, and inside its expiry window), repeated misses lock the path out,
+    # the comparison is constant-time, and both hit and miss are logged. A miss
+    # falls through to the normal OTP path below, which rejects it.
+    armed, reason = settings.review_bypass_state()
+    if armed and email == settings.review_email.lower():
+        if _review_locked_out():
+            _log.warning("reviewer bypass: locked out after %d failures", _REVIEW_MAX_FAILURES)
+            raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS,
+                                "Too many attempts; try again later")
+        if _secrets.compare_digest(body.code, settings.review_code):
+            _REVIEW_FAILURES.clear()
+            _log.warning("reviewer bypass: login ACCEPTED for %s (%s)", email, reason)
+            user = (await db.execute(select(User).where(User.email == email))).scalar_one_or_none()
+            if user is None:
+                user = User(email=email)
+                db.add(user)
+                await db.flush()
+            user.email_verified = True
+            return await _issue_token_pair(db, user, settings)
+        _REVIEW_FAILURES.append(_now())
+        _log.warning("reviewer bypass: WRONG CODE presented for %s", email)
     otp = (await db.execute(
         select(OtpCode)
         .where(OtpCode.email == email, OtpCode.consumed.is_(False))

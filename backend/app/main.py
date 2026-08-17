@@ -17,12 +17,24 @@ from .routers import analytics, auth, gamification, inventory, nutrition, onboar
 
 logging.basicConfig(level=logging.INFO)
 settings = get_settings()
+_log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Convenience bootstrap; production should use Alembic migrations instead.
     await init_models()
+    # Make the reviewer-bypass state visible in the boot log. A bypass still
+    # armed after App Review is the riskiest thing this service can be running,
+    # so it announces itself on every start rather than sitting silent.
+    armed, reason = settings.review_bypass_state()
+    if armed:
+        _log.warning(
+            "REVIEWER LOGIN BYPASS IS ARMED for %s (%s) — clear the REVIEW_* env vars "
+            "once App Review is complete.", settings.review_email, reason,
+        )
+    else:
+        _log.info("reviewer login bypass inactive (%s)", reason)
     yield
 
 

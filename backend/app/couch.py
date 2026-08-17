@@ -38,10 +38,23 @@ def week_number(started_at: dt.datetime, now: dt.datetime) -> int:
     return 1 + int(max(0.0, elapsed) // (_WEEK_DAYS * 86400))
 
 
+def _is_added(ex: dict) -> bool:
+    """True for a movement the user added themselves (library pick or social-media
+    suggestion). These sit outside the beginner ramp: always shown, never counted
+    toward the ramp length."""
+    return bool(ex.get("added_by_user"))
+
+
 def program_full(program: dict) -> int:
-    """Full daily routine size = min(LADDER_MAX, longest day in the program)."""
+    """Full daily routine size = min(LADDER_MAX, longest day in the program).
+
+    Counts only ramp (generator-authored) exercises — user-added movements don't
+    extend the ramp, so adding one never pushes the weekly target higher."""
     days = program.get("days") or []
-    longest = max((len(d.get("exercises") or []) for d in days), default=0)
+    longest = max(
+        (sum(1 for e in (d.get("exercises") or []) if not _is_added(e)) for d in days),
+        default=0,
+    )
     return min(LADDER_MAX, longest)
 
 
@@ -75,15 +88,19 @@ def _reveal_day(day: dict, unlocked: int) -> dict:
     2-exercise day is the intended push/pull pairing. The newest revealed move is
     capped to 2 sets. est_minutes is recomputed for the shortened day.
     """
-    exercises = list(day.get("exercises") or [])
-    take = min(max(0, unlocked), len(exercises))
+    all_ex = list(day.get("exercises") or [])
+    ramp = [e for e in all_ex if not _is_added(e)]     # subject to the weekly reveal
+    added = [e for e in all_ex if _is_added(e)]         # always shown (user chose them)
+    take = min(max(0, unlocked), len(ramp))
     revealed: list[dict] = []
     for pos in range(take):
-        ex = dict(exercises[pos])  # never mutate the stored plan_json
-        # The newest movement on this day (last one revealed) eases in at 2 sets.
+        ex = dict(ramp[pos])  # never mutate the stored plan_json
+        # The newest ramp movement on this day (last one revealed) eases in at 2 sets.
         if pos == take - 1 and take == unlocked:
             ex["sets"] = min(int(ex.get("sets", _NEW_MOVE_SETS)), _NEW_MOVE_SETS)
         revealed.append(ex)
+    # User-added exercises appear regardless of the ramp — they aren't part of it.
+    revealed.extend(dict(e) for e in added)
     est = int(_WARMUP_MIN + sum(_cost(bool(e.get("compound"))) * int(e.get("sets", 0)) for e in revealed))
     return {
         "name": day.get("name", ""),
@@ -99,13 +116,17 @@ def couch_days(program: dict, unlocked: int) -> list[dict]:
 
 
 def _newest_exercise_name(program: dict, unlocked: int) -> str | None:
-    """Name of the freshest movement (Day 1's `unlocked`-th exercise), for copy."""
+    """Name of the freshest RAMP movement (Day 1's `unlocked`-th generated
+    exercise), for coach copy. User-added movements are ignored here — they're
+    not part of the ramp the copy is talking about."""
     days = program.get("days") or []
     if not days:
         return None
-    day0 = couch_days(program, unlocked)[0]
-    exs = day0.get("exercises") or []
-    return exs[-1]["name"] if exs else None
+    ramp = [e for e in (days[0].get("exercises") or []) if not _is_added(e)]
+    if not ramp:
+        return None
+    idx = min(max(1, unlocked), len(ramp)) - 1
+    return ramp[idx]["name"]
 
 
 # ---------------------------------------------------------------------------

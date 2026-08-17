@@ -44,6 +44,13 @@ Then in the console:
    - EC2 → Target Groups → open both `ecs-gateway-tg-*` → whichever **Targets** tab shows a **healthy** target is the live one.
    - EC2 → Load Balancers → gateway ALB → Listeners → HTTPS:443 → Manage rules → the `api.glpsteel.com` rule → set that healthy target group's weight to **100%**, the other **0%**.
 7. Verify: `curl https://api.glpsteel.com/health` → `{"status":"ok","environment":"production"}`.
+7b. **Deploy carrying the onboarding name (2026-08-05):** adds a nullable
+   `users.name` column, created automatically by `_COLUMN_BOOTSTRAP` in
+   `database.py` on boot — no manual DB step. Until this backend is live, the app's
+   onboarding name field is a no-op (the old API ignores the extra `name` field and
+   `/me` omits it, so the Home greeting falls back to the email-derived name — no
+   error either way). The rest of the 2026-08-05 UX overhaul is mobile-only and ships
+   via a normal app build (section C), NOT a backend deploy.
 8. **First deploy with Neutron (nutrition module):** the 7 new tables
    (`nutrition_profiles`, `weight_logs`, `pantry_items`, `saved_recipes`,
    `protein_logs`, `nutrition_badges`, `nutrition_parse_cache` — the last
@@ -54,6 +61,15 @@ Then in the console:
    `POST /nutrition/parse` with `{"phrases": ["grilled chicken breast"]}`
    (exercises the voice-log cache + Bedrock text path; call it twice — the
    second response must return `"cached": true`).
+9. **Add-your-own-exercise classifier cache:** the new `exercise_classify_cache`
+   table is created automatically by `init_models` on boot — no manual DB step.
+   Smoke-test (authed, with an active program): `GET /programs/exercise-library`
+   (static list), then `POST /programs/exercises/classify` with
+   `{"text": "bulgarian split squat"}` twice — the FIRST returns `source`
+   `bedrock:…` (or `stub` in dev), the SECOND must return `source: "cache"`.
+   Only real Bedrock answers are cached (the stub is not), so in a `bedrock`
+   deployment the second call proves the cache path; under `VISION_PROVIDER=stub`
+   both calls return `source: "stub"` and nothing is written.
 
 ---
 
@@ -85,8 +101,11 @@ npx expo start            # subsequent JS-only changes: reuse the installed dev 
   fine for UI testing against real data. To test *backend* changes locally instead, run
   `uvicorn app.main:app --reload` in `backend/` and switch `config.ts` to the localhost
   line (simulator reaches the Mac's localhost directly). **Switch it back before building.**
-- **Login without email round-trips:** the reviewer bypass works on the simulator —
-  `reviewer@glpsteel.com` / code `027858`.
+- **Login without email round-trips:** the reviewer bypass works on the simulator, but only while
+  it is armed (see gotcha #7). Email `reviewer@glpsteel.com`; read the current code from the ECS
+  task-def env var `REVIEW_CODE` — it is not recorded in this repo. If the bypass is expired or
+  unarmed, the simulator falls through to a normal OTP login and you can read the code out of
+  CloudWatch when `EMAIL_DEV_MODE=true`, or from the real inbox otherwise.
 - **What to check before pushing:** app boots, every screen you touched renders in BOTH
   light and dark mode, and (if native deps changed) the affected views actually draw —
   the Skia blank-screen incident (gotcha #9) is exactly the failure class the simulator
@@ -110,6 +129,32 @@ npx eas-cli submit --platform ios --latest
 Then App Store Connect → TestFlight → the build appears after processing.
 Internal testers install immediately; external group needs one-time Beta App Review.
 After a dependency change, always `npx expo start -c` locally (stale-bundle trap).
+
+### C2. Local build → TestFlight (when the free cloud quota is used up)
+
+The Free plan gives 15 iOS cloud builds/month; when they're gone EAS errors with
+"used its iOS builds from the Free plan this month" and the quota resets at month
+start (UTC). Rather than wait or pay ($19/mo Starter is the entry tier), build the
+`.ipa` locally on this Mac and submit that — **EAS Submit is free and unlimited**, so
+only the *build* moves off the cloud.
+
+```bash
+cd "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram/mobile"
+# bump ios.buildNumber in app.json first (same rule as C)
+npx eas-cli build --platform ios --profile production --local   # writes an .ipa in cwd
+npx eas-cli submit --platform ios --path ./build-*.ipa          # or --latest if only one
+```
+
+Prereqs (one-time on a fresh Mac): full Xcode (not just Command Line Tools) with
+`sudo xcodebuild -license accept`, plus **Fastlane** and **CocoaPods** on PATH —
+`brew install fastlane cocoapods`. Missing Fastlane fails instantly with
+`spawn fastlane ENOENT`. See gotcha #11 for the macOS Tahoe keychain patch, which
+this Mac needs on every fresh npx cache.
+
+Confirmed working end-to-end 2026-07-31 (Build 20 shipped this way once the cloud
+quota ran out). Prefer the cloud path (section C) when quota is available — the local
+path is only to unblock a build, and the Tahoe patch has to be re-applied after every
+eas-cli upgrade.
 
 ---
 
@@ -158,9 +203,28 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
    - **Local dev without AWS:** `VISION_PROVIDER=stub` also selects the stub pantry scanner and
      stub recipe engine, so the whole scan → recipes → log flow works offline.
 
-7. **Reviewer bypass (App Store review):** env vars `REVIEW_EMAIL` + `REVIEW_CODE` on the ECS
-   service enable a fixed-code login for `reviewer@glpsteel.com`. **Remove/rotate before public
-   launch** — it's a real backdoor for that one account.
+7. **Reviewer bypass (App Store review) — now time-boxed.** Three env vars on the ECS service
+   arm a fixed-code login for one account: `REVIEW_EMAIL`, `REVIEW_CODE`, `REVIEW_BYPASS_UNTIL`.
+   It is still a real backdoor, so it is now guarded in code
+   (`app/config.py` `Settings.review_bypass_state`, applied in `app/routers/auth.py`):
+   - **Hard expiry.** `REVIEW_BYPASS_UNTIL` is an inclusive ISO date (`YYYY-MM-DD`, UTC). Past it
+     the code path is inert *even if the vars are still set*. There is no way to leave it on by
+     forgetting.
+   - **Code strength.** `REVIEW_CODE` must be ≥24 characters or the bypass refuses to arm. The old
+     6-digit code no longer works — a 10^6 keyspace on an unthrottled endpoint was the actual
+     vulnerability, not the bypass itself.
+   - **Throttle + constant-time compare.** 5 wrong codes locks the path for 15 minutes; the
+     comparison uses `secrets.compare_digest`.
+   - **Loud.** Every accept, every miss, and the armed/inert state at boot are logged at WARNING.
+     Check with the log-tail command in gotcha #8 — grep for `reviewer bypass`.
+
+   **Per-submission procedure:**
+   ```bash
+   openssl rand -hex 16          # 32 chars — paste into REVIEW_CODE on the ECS task def
+   ```
+   Set `REVIEW_BYPASS_UNTIL` to ~6 weeks out, put the code in the App Review notes field in App
+   Store Connect (never in this repo), and **clear all three vars once the app is approved**.
+   Failing to clear them is now non-fatal — the expiry closes the window on its own.
 
 8. **Reading logs:**
    ```bash
@@ -175,7 +239,7 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
    instead. Any new drawing/canvas work: same substrate, and verify on the simulator (section B)
    before pushing.
 
-10a. **FastAPI route ordering: static paths before dynamic.** `GET /programs/couch`
+11. **FastAPI route ordering: static paths before dynamic.** `GET /programs/couch`
     returned 404 "Program not found" because a dynamic `GET /programs/{program_id}`
     was declared *before* it and captured `couch` as an id. Symptom on device: the
     beginner "Your Plan / Program not found" screen with a dead Retry. Rule: in a
@@ -183,7 +247,26 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
     `/{param}` catch-all — the `/{program_id}` handler now lives at the bottom of
     `routers/programs.py` on purpose.
 
-10. **app.json config plugins DON'T apply to EAS builds — this is a bare project.**
+10. **`eas build --local` iOS fails on macOS Tahoe (26) at Prepare credentials.**
+    Errors with `Distribution certificate <fingerprint> hasn't been imported
+    successfully` even though the cert IS imported. EAS verifies the import with
+    `security find-identity -v`; the `-v` ("valid only") flag needs the full Apple
+    trust chain, which the ephemeral build keychain doesn't hold on Tahoe, so it
+    wrongly reports 0 identities and aborts. (Cloud builds are unaffected — this is
+    `--local`-only. Upstream: expo/eas-cli #3678 / #3645.) Fix = drop the `-v` from
+    the cached plugin file, then rerun:
+    ```bash
+    # path's npx hash changes on every eas-cli upgrade — glob for the current one:
+    F=$(ls ~/.npm/_npx/*/node_modules/@expo/build-tools/dist/ios/credentials/keychain.js)
+    perl -0pi -e "s/(['\"]find-identity['\"],\s*)['\"]-v['\"],\s*/\$1/g" "$F"
+    grep -n "find-identity" "$F"   # verify: 'find-identity', '-s', ... (no '-v')
+    ```
+    Fragile: wiped by `npx clear-cache` and by any eas-cli upgrade (new npx hash →
+    fresh download → re-patch). `credentialsSource: "local"` in `eas.json` does NOT
+    dodge it — same code path runs. Codesign resolves trust correctly downstream, so
+    the build completes fine once `-v` is gone.
+
+12. **app.json config plugins DON'T apply to EAS builds — this is a bare project.**
     `mobile/ios/` exists (created by `expo run:ios`), so EAS builds the native
     project as-is and never runs prebuild; plugin entries in `app.json` (e.g.
     permission strings) silently do nothing. This caused the ITMS-90683
@@ -200,7 +283,10 @@ After a dependency change, always `npx expo start -c` locally (stale-bundle trap
 
 ## E. Pre-public-launch checklist (open items)
 - [ ] Re-enable DB TLS (SSL context in `database.py`; revert `rds.force_ssl`).
-- [ ] Remove/rotate the reviewer bypass env vars.
+- [x] **Reviewer bypass hardened (2026-08-17).** Now time-boxed, length-checked, throttled,
+      constant-time and logged — see gotcha #7. The old 6-digit code is inert as of this deploy.
+      **Still open (manual):** rotate `REVIEW_CODE` to a 32-char random value, set
+      `REVIEW_BYPASS_UNTIL`, and clear all three vars after approval.
 - [ ] Remove diagnostic `_log.warning` lines from `recognition.py`.
 - [ ] Give `api.glpsteel.com` a stable route (add it to Express's managed host rule, or a
       dedicated ALB) so the blue/green re-point step goes away.

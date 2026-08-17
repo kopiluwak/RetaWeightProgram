@@ -132,6 +132,20 @@ def test_parse_classify_output():
     assert cx.parse_classify_output({"output": {"message": {"content": []}}}, "x") is None
 
 
+def test_classified_payload_round_trips_for_cache():
+    # The classify cache stores model_dump() and rebuilds with ClassifiedExercise(
+    # **payload) — this must survive the trip so cache reads work.
+    orig = cx.ClassifiedExercise(
+        name="Cable Pushdown", primary=[ex.TRICEPS], compound=False,
+        description="Elbows pinned.", confidence=0.8, source="bedrock:test",
+    )
+    payload = orig.model_dump()
+    rebuilt = cx.ClassifiedExercise(**{**payload, "source": "cache"})
+    assert rebuilt.name == orig.name
+    assert rebuilt.primary == orig.primary
+    assert rebuilt.source == "cache"
+
+
 def _run() -> None:
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:

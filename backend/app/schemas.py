@@ -48,6 +48,8 @@ class HabitsIn(BaseModel):
     # `beginner` is a UI/API-layer value that enables Couch-to-Weights; the program
     # engine never sees it (the router maps beginner -> conservative volume band).
     experience: str = Field(pattern=r"^(beginner|conservative|intermediate|advanced)$")
+    # Optional display name for greeting personalization (stored on the user).
+    name: str | None = Field(default=None, max_length=80)
 
 
 class CouchStateOut(BaseModel):
@@ -75,6 +77,7 @@ class MeOut(BaseModel):
     email: EmailStr
     email_verified: bool
     training_mode: str
+    name: str | None = None
     habits: HabitsOut | None = None
 
 

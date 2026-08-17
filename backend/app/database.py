@@ -42,6 +42,8 @@ _COLUMN_BOOTSTRAP = [
     # Added 2026-07-23 (equipment customization for program generation):
     "ALTER TABLE user_habits ADD COLUMN gen_bodyweight_only BOOLEAN NOT NULL DEFAULT false",
     "ALTER TABLE user_habits ADD COLUMN gen_equipment_types JSONB",
+    # Added 2026-08-04 (optional display name for greeting personalization):
+    "ALTER TABLE users ADD COLUMN name VARCHAR(80)",
 ]
 
 

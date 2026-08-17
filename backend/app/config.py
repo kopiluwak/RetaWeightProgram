@@ -3,7 +3,9 @@
 All secrets and environment-specific values live here. Nothing else in the
 codebase reads os.environ directly.
 """
+import datetime as dt
 from functools import lru_cache
+from typing import ClassVar
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -61,11 +63,44 @@ class Settings(BaseSettings):
     # --- Defaults for onboarding habits (spec onboarding decision) ---
     default_session_minutes: int = 60
     default_experience: str = "conservative"  # conservative | intermediate | advanced
-    # --- App Store review ---
-    # Reviewer bypass — when both are set, this email + code logs in
-    # without a real OTP send. Leave blank in normal operation.
+    # --- App Store review: time-boxed reviewer bypass ---
+    # An App Review tester cannot receive our OTP email, so ONE account may log
+    # in with a fixed code. This is a real backdoor, so it is deliberately hard
+    # to leave switched on by accident:
+    #   * review_bypass_until is a HARD expiry. Past that date the code path is
+    #     inert even if the other two vars are still on the task definition.
+    #   * review_code must be at least MIN_REVIEW_CODE_LENGTH characters. The
+    #     old 6-digit code was a 10^6 keyspace on an unthrottled endpoint.
+    #   * every use, and every miss, is logged at WARNING.
+    # Generate a fresh code per submission (`openssl rand -hex 16`), set it as an
+    # ECS task-def env var, and NEVER commit it. See OPERATIONS_RUNBOOK.md §D7.
     review_email: str = ""
     review_code: str = ""
+    review_bypass_until: str = ""  # ISO date "YYYY-MM-DD" (UTC, inclusive)
+
+    MIN_REVIEW_CODE_LENGTH: ClassVar[int] = 24
+
+    def review_bypass_state(self, today: dt.date | None = None) -> tuple[bool, str]:
+        """Return ``(armed, reason)`` for the reviewer bypass.
+
+        Armed only when every guard passes. The reason string is safe to log —
+        it never contains the code itself. Callers MUST treat a False as
+        "fall through to the normal OTP path", not as an error.
+        """
+        if not (self.review_email and self.review_code and self.review_bypass_until):
+            return False, "not configured"
+        if len(self.review_code) < self.MIN_REVIEW_CODE_LENGTH:
+            return False, (
+                f"REVIEW_CODE is shorter than {self.MIN_REVIEW_CODE_LENGTH} chars — refusing to arm"
+            )
+        try:
+            until = dt.date.fromisoformat(self.review_bypass_until)
+        except ValueError:
+            return False, "REVIEW_BYPASS_UNTIL is not an ISO date (YYYY-MM-DD)"
+        now = today or dt.datetime.now(dt.timezone.utc).date()
+        if now > until:
+            return False, f"expired {until.isoformat()}"
+        return True, f"armed until {until.isoformat()}"
 
 
 @lru_cache

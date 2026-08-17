@@ -86,6 +86,7 @@ async def me(
         email=user.email,
         email_verified=user.email_verified,
         training_mode=user.training_mode,
+        name=user.name,
         habits=_habits_out(habits, couch),
     )
 
@@ -107,6 +108,13 @@ async def set_habits(
     habits.session_minutes = body.session_minutes
     habits.experience = body.experience
     habits.onboarded = True
+
+    # Optional display name lives on the user, not the habits row. Only overwrite
+    # when the client actually sent one, so re-saving onboarding without a name
+    # doesn't wipe an existing one; an empty string clears it.
+    if body.name is not None:
+        cleaned = body.name.strip()[:80]
+        user.name = cleaned or None
 
     # Couch-to-Weights: the beginner option enables the progressive ramp. Initialize
     # the ramp only on the first switch into beginner (don't reset an in-progress
