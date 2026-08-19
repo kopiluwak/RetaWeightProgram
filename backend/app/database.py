@@ -44,6 +44,9 @@ _COLUMN_BOOTSTRAP = [
     "ALTER TABLE user_habits ADD COLUMN gen_equipment_types JSONB",
     # Added 2026-08-04 (optional display name for greeting personalization):
     "ALTER TABLE users ADD COLUMN name VARCHAR(80)",
+    # Added 2026-08-18 (App Store 5.1.1(v) account deletion — grace window).
+    # NULL = active account; set = purge scheduled. See app/deletion.py.
+    "ALTER TABLE users ADD COLUMN deletion_requested_at TIMESTAMPTZ",
 ]
 
 

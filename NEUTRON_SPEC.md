@@ -5,18 +5,41 @@ must hit **>= 1 g protein / kg bodyweight / day** to preserve muscle in a
 deficit. Built 2026-07-07. Companion to `BUILD_SPEC.md`; deploy per
 `OPERATIONS_RUNBOOK.md` (new tables are created by `init_models` on boot).
 
+Status (2026-08-19): the **core backend is live in prod** (confirmed 2026-07-13).
+Voice Log (N8) and every mobile screen are **built but not in a shipped app
+build**, and the 2026-08-19 changes recorded below — medical disclaimers, the
+softened preset labels, the hidden Boosters entrance — are **built, not yet
+deployed or shipped**. See `PROJECT_STATE.md` for the authoritative status.
+
+**Protein Boosters is built but HIDDEN for the 1.0 App Store submission**
+(2026-08-19). All ten `_MARKETPLACE` URLs are still `example.com` placeholders
+and the screen told the user so, which is an App Store 2.1 (App Completeness)
+rejection. The entrance NavRow in `NutritionHomeScreen.tsx` is commented out
+with re-enable instructions; `ProteinBoostersScreen`, the `App.tsx` route and
+`GET /nutrition/marketplace` are all untouched, so re-enabling is one JS-only
+edit once an affiliate program is live and real URLs are in `_MARKETPLACE`.
+Everything else in this spec is unchanged. See `PROJECT_STATE.md` (HB-3) and
+`APPSTORE_READINESS.md` §2b for the affiliate-program constraints.
+
 ## N1. Feature spec & user flows
 
 **Entry.** Home screen "Nutrition" card (replaces the SOON teaser). First tap
 fetches `/nutrition/profile`; if not onboarded the user lands on setup
 (current weight kg, optional goal weight, diet pattern, restrictions). Target
-defaults to auto = 1 g/kg and recalculates on every weight log; a custom
-target pins it (`target_mode: custom`).
+defaults to auto = **1.52 g/kg** (≈ 0.69 g/lb; presets 1.0 / 1.52 / 2.2 via
+`protein_multiplier`) and recalculates on every weight log; a custom
+target pins it (`target_mode: custom`). Preset labels are deliberately
+non-clinical — the old "GLP-1 minimum" label and the uncited "research supports
+1 g/kg" claim were removed 2026-08-19, since the app can't substantiate a
+medical threshold (guideline 1.4.1). The setup screen also carries a persistent,
+non-dismissible not-medical-advice notice.
 
 **Neutron home.** Progress ring (today g / target g, color shifts
 accent→teal→green as it fills), motivational message, streak + level badges,
 quick-log (Stepper + one tap), collapsible weight check-in, and four doors:
 Scan My Kitchen, Recipes & Meal Builder, Protein Tracker, Protein Boosters.
+(As of 2026-08-19 only the first three render — the Boosters door is commented
+out for 1.0; see the status note above.)
 
 **Scan My Kitchen flow.**
 1. Up to 4 photos (camera or library), HEIC→JPEG re-encode at 1600 px (same
@@ -46,9 +69,12 @@ calendar week; current week averaged over elapsed days only), daily/weekly
 streak + best streak, level card with progress to next level, muscle score,
 badge cabinet (earned + locked), recent entries.
 
-**Boosters.** Curated marketplace, category chips, protein/serving + price +
+**Boosters.** *(Built; entrance hidden for 1.0 — see the status note at the top.)*
+Curated marketplace, category chips, protein/serving + price +
 "Best for GLP-1 users" tags, placeholder affiliate links (tapping one shows an
-honest "partnerships not live yet" alert), commission disclosure footer.
+honest "partnerships not live yet" alert), commission disclosure — moved ABOVE
+the product list on 2026-08-19, since rendering it below all ten cards fails the
+FTC clear-and-conspicuous proximity test.
 
 ## N2. Data model (in `backend/app/models.py`)
 
@@ -123,8 +149,19 @@ original. Day-plan prompt requires >= target total with 25-40 g meals.
 
 Scan photos: encrypted in transit, recognition-only, never stored (stated on
 both the scan screen and Neutron home). No medication data — consistent with
-the app-wide F8 rule. Copy is supportive and science-anchored ("1 g/kg to
-preserve lean mass"), never shaming; motivational lines rotate by ratio bands.
+the app-wide F8 rule. Copy is supportive, never shaming; motivational lines
+rotate by ratio bands.
+
+Updated 2026-08-19 (guideline 1.4.1): the science-anchored framing is now
+hedged rather than asserted — "1 g/kg is a commonly cited floor" instead of
+"research supports a minimum of 1 g/kg" — and two persistent, non-dismissible
+disclaimers were added: not-medical-advice + see-a-doctor/dietitian on
+`NutritionSetupScreen`, and an AI-content/allergen warning on the generated-
+recipe view in `RecipesScreen`, placed **above** the "I made this" / "Save"
+actions so it is read before the food is eaten. The camera and photo-library
+purpose strings in `Info.plist` / `app.json` now name the kitchen-scan use and
+repeat that kitchen photos are never stored (guideline 5.1.1(i)) — a native
+change, so it only reaches users in a new app build.
 
 ## N8. Voice Log (added 2026-07-12) — cache-first, AI-last protein logging
 
@@ -177,4 +214,6 @@ to the sqlite `log_queue` and flush next time the screen opens.
    Bump `ios.buildNumber`, EAS build + submit.
 4. Verify Bedrock model access covers text-only Converse (same model id).
 5. Before public launch: swap marketplace placeholder URLs for real affiliate
-   links and re-check the disclosure copy.
+   links and re-check the disclosure copy. **Not done — instead the Boosters
+   entrance was hidden for 1.0 (2026-08-19).** Re-enable is a JS-only edit in
+   `NutritionHomeScreen.tsx`; do it only once real URLs are in `_MARKETPLACE`.

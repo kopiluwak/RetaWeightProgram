@@ -21,15 +21,47 @@ this app, that is stated plainly rather than padded into the risk list.
 | | count |
 |---|---|
 | HARD BLOCKERS — originally found | **7** |
-| HARD BLOCKERS — **fixed in code** (HB-1 account deletion, HB-2 reviewer backdoor) | **2** |
-| HARD BLOCKERS — **remaining** (HB-3, HB-4, HB-5, HB-6, HB-7) | **5** |
+| HARD BLOCKERS — **fixed** (HB-1 … HB-7) | **7 of 7** ✅ |
+| HARD BLOCKERS — remaining | **0** |
 | SHOULD-FIX (technical debt / release hygiene, not a rejection cause) | **11** |
 | Verified-clean areas (no action) | 4 |
+
+> **All seven hard blockers are closed in code.** What remains before submission is not code:
+> rotate `REVIEW_CODE` + set `REVIEW_BYPASS_UNTIL` on ECS (§2a), deploy the backend, build and
+> ship the app, and complete the App Store Connect metadata — for which the privacy nutrition
+> label answers are in §1.6. The SHOULD-FIX list in §3 is untouched and none of it blocks review.
 
 **Progress log**
 - 2026-08-17 — HB-2 reviewer backdoor hardened (time-boxed, length-checked, throttled, logged).
 - 2026-08-18 — HB-1 in-app account deletion shipped (30-day grace, anonymising fold, purge sweep).
   Privacy and support pages rewritten for the deletion flow; the rest of HB-7 is still open.
+- 2026-08-18 — HB-4 camera + photo-library purpose strings rewritten to cover the kitchen/food
+  use, mirrored into `app.json`. **Requires a new app build to reach the binary** — the strings
+  live in the native project, not in JS.
+- 2026-08-18 — HB-3 Protein Boosters entrance hidden for 1.0; FTC disclosure moved above the
+  product list. Affiliate-program research for the 1.1 re-enable captured in §2b.
+- 2026-08-18 — **HB-7 closed.** `_PRIVACY_HTML` in `main.py` rewritten from a 5-item list into a
+  full inventory: account fields (incl. the optional phone), training logs and readiness ratings,
+  body weight history, protein settings, dietary restrictions and allergies, food/protein logs,
+  pantry and saved recipes, equipment vs kitchen photos (different retention), on-device voice
+  transcription vs the text phrases that do leave the device, and typed exercise descriptions.
+  Added sections on AI processing, what we never collect, data-subject rights, international
+  transfer, and policy changes. **Also corrected an error in this very document:** §1.4 claimed no
+  screen collects a phone number — `EmailEntryScreen.tsx:55-59` does, so the nutrition label in
+  §1.6 was wrong too and is now fixed.
+- 2026-08-18 — **HB-6 closed.** Fabricated social proof deleted from `website/index.html` (invented
+  "4.9 App Store rating", three fictional press outlets, three fabricated testimonials attributing
+  invented results to tirzepatide/semaglutide) — deleted rather than commented out, since HTML
+  comments are visible in view-source. Then the four dead `href="#"` store buttons resolved: the
+  two App Store buttons became non-clickable "Coming soon" badges, and both Google Play buttons
+  were removed because Android isn't shipping (advertising an unshipped platform is the same 2.3
+  problem as the fake rating). Site is now internally consistent: 512 → 457 lines, zero dead links,
+  zero unverifiable claims. Launch-day switch-on procedure in `website/WEBSITE_BRIEF.md`.
+- 2026-08-18 — HB-5 medical disclaimers added at the three points where the app gives health-
+  adjacent instruction (onboarding, protein target, generated recipes) plus Health &amp; safety
+  sections on `/privacy` and `/support`. Wording approved by the owner. The uncited
+  "research supports 1 g/kg" claim and the "GLP-1 minimum" preset label were softened to
+  non-clinical phrasing — the app is in no position to define a medical threshold.
 
 The single most surprising result: **`ios/WeightProgram/Info.plist` is currently correct.** All five
 permission strings the code actually needs are present. The ITMS-90683 class of failure is closed —
@@ -114,7 +146,7 @@ Current policy text: `backend/app/main.py:46-65`. Data the code actually handles
 | **Voice-derived meal text sent to Bedrock** | `mobile/src/screens/VoiceLogScreen.tsx:98-104` → `routers/nutrition.py:638`; cached server-side in `models.py:359-371` (`nutrition_parse_cache`) | ❌ **missing** — audio stays on device, but the *transcript phrases* leave it and are cached |
 | **Free-text exercise descriptions sent to Bedrock** | `routers/programs.py:321`; cached in `models.py:373-386` (`exercise_classify_cache`) | ❌ **missing** |
 | **Optional display name** | `backend/app/database.py:46`; `routers/onboarding.py:112-117` | ❌ **missing** |
-| Phone number | `models.py` `User.phone`; `routers/auth.py:84,87-88` accepts it | ⚠️ policy claims it at `main.py:54`, but **no screen collects it** — the field is dead in the UI. Harmless, but the policy over-discloses. |
+| Phone number (optional) | `models.py` `User.phone`; `routers/auth.py` accepts it; **collected at `mobile/src/screens/EmailEntryScreen.tsx:55-59`** ("Phone (optional)" field), sent via `api.ts:63-66` | ✅ in the policy. **Correction (2026-08-18): an earlier draft of this table said "no screen collects it" — that was wrong.** The sign-in screen has a phone field. This also means the privacy nutrition label must declare Contact Info → Phone as **collected**, not "No". |
 | Affiliate commission relationship | `routers/nutrition.py:857-859` (`_DISCLOSURE`) | ❌ **missing from the policy** (it is disclosed in-app at `ProteinBoostersScreen.tsx:100`) |
 
 Also stale: `main.py:50` says "Last updated: July 1, 2026" — predates the entire nutrition module.
@@ -240,7 +272,7 @@ carries a `user_id` foreign key.
 | Photos | Yes *(conditional)* | Yes | No | App Functionality **+ Product Personalisation/Improvement when the user opts in** | `inventory.py:107,171-178`; opt-in flag `consent_to_train` |
 | Audio Data | **No** | — | — | Speech is recognised **on-device** (`VoiceLogScreen.tsx:62,98-104`); no audio leaves the device | |
 | Other User Content (meal text sent for parsing) | Yes | Yes | No | App Functionality | `nutrition.py:638`; `models.py:359-371` |
-| Contact Info — Phone | **No** (declare No) | — | — | Field exists in the model but no screen collects it | `models.py` `User.phone` |
+| Contact Info — Phone | **Yes** (optional) | Yes | No | App Functionality | `EmailEntryScreen.tsx:55-59` — optional field on the sign-in screen. **Declare it.** Under-declaring a collected field is its own metadata problem |
 | Usage Data / Diagnostics / Identifiers / Location / Contacts | No | — | — | No SDKs present | `mobile/package.json` |
 
 `[unverified — confirm in App Store Connect]` whether a label set is already saved from the TestFlight
@@ -254,11 +286,11 @@ submission; if so it predates the nutrition module and must be re-answered.
 |---|---|---|---|---|
 | ~~**HB-1**~~ | ~~No in-app account deletion~~ **✅ FIXED 2026-08-18** | **5.1.1(v)** | `app/deletion.py`; `POST`/`DELETE /me/deletion` in `routers/onboarding.py`; Home menu item + `PendingDeletionScreen.tsx`; `App.tsx` gate | ✅ done. 30-day grace, anonymising fold, purge sweep. Tests: `python3 -m tests.test_deletion` |
 | ~~**HB-2**~~ | ~~Live reviewer backdoor with a non-expiring fixed code, credential committed to a GitHub-pushed repo~~ **✅ CODE FIX LANDED 2026-08-17** | Not a guideline — a security defect that must not reach production | `config.py` `review_bypass_state()`; `auth.py` request-otp + verify-otp guards; `main.py` boot log | ✅ done in code. **Three manual steps remain — see §2a.** |
-| **HB-3** | Protein Boosters ships with 10 dead `example.com` links and in-app copy admitting the feature isn't live | **2.1** App Completeness | `nutrition.py:817-853`; `ProteinBoostersScreen.tsx:46-52,94` | ✅ yes (hide the entrance) — **needs your call: hide vs. supply real URLs** |
-| **HB-4** | Camera and photo-library purpose strings describe equipment only; both are also used for kitchen/food photos | **5.1.1(i)** | `Info.plist:49-50,55-56` vs `KitchenScanScreen.tsx:51,55` | ✅ yes |
-| **HB-5** | GLP-1 / bodyweight-derived protein targets and allergy-constrained AI meals with **no medical disclaimer anywhere in the app** | **1.4.1** | `NutritionSetupScreen.tsx:24,123`; `neutron_recipes.py:158,173-180`; disclaimer exists only at `website/index.html:426,494` | ⚠️ yes, **but blocked on your approval of the wording** (stop condition) |
-| **HB-6** | Marketing URL shows a fabricated "4.9 App Store rating" and dead store links | **2.3** Accurate Metadata | `website/index.html:167,110,447` | ❌ **out of the Phase 2 edit scope you set** — documented as a manual step |
-| **HB-7** | Privacy policy omits bodyweight, food logs, dietary/allergy data, kitchen photos, voice-derived text and the affiliate relationship | **5.1.1** / **5.1.2** and App Store Connect accuracy | `main.py:46-65` vs §1.4 table | ✅ yes (`main.py` is in scope) |
+| ~~**HB-3**~~ | ~~Protein Boosters ships with 10 dead `example.com` links~~ **✅ FIXED 2026-08-18** | **2.1** App Completeness | Entrance commented out in `NutritionHomeScreen.tsx`; route, screen and `/nutrition/marketplace` all left intact | ✅ done — hidden for 1.0. Re-enable is a JS-only change once affiliate URLs are real. See §2b |
+| ~~**HB-4**~~ | ~~Camera and photo-library purpose strings describe equipment only~~ **✅ FIXED 2026-08-18** | **5.1.1(i)** | `Info.plist` `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription`, mirrored into `app.json` `expo-image-picker` | ✅ done. Both strings now name the kitchen/food use and state that kitchen photos are never stored — claim verified against `routers/nutrition.py:454-466` |
+| ~~**HB-5**~~ | ~~No medical disclaimer anywhere in the app~~ **✅ FIXED 2026-08-18** | **1.4.1** | Disclaimers in `OnboardingScreen`, `NutritionSetupScreen`, `RecipesScreen` + Health &amp; safety sections on `/privacy` and `/support` | ✅ done, wording approved. Uncited "research supports 1 g/kg" claim and the "GLP-1 minimum" preset label also softened |
+| ~~**HB-6**~~ | ~~Fabricated rating, invented testimonials, dead store links~~ **✅ FIXED 2026-08-18** | **2.3** Accurate Metadata | `website/index.html` — social-proof bar + transformations deleted; App Store buttons now non-clickable "Coming soon" badges; Google Play buttons removed | ✅ done. 0 dead links, 0 fabricated claims, 0 unshipped-platform promises. Launch-day switch-on documented in `WEBSITE_BRIEF.md` |
+| ~~**HB-7**~~ | ~~Privacy policy omits most of what the app collects~~ **✅ FIXED 2026-08-18** | **5.1.1** / **5.1.2** and App Store Connect accuracy | `main.py` `_PRIVACY_HTML` rewritten — every row of the §1.4 table is now disclosed | ✅ done. Adds AI-processing, never-collect, rights, international-transfer and policy-change sections. Affiliate line deferred with the hidden marketplace (§2b) |
 
 ### 2a. HB-2 — manual steps still outstanding
 
@@ -284,6 +316,53 @@ The code fix is deployed-ready but not self-completing. Three things only you ca
    I have **not** run this. `git filter-repo` is not installed by default (`brew install git-filter-repo`).
 3. **Clear all three vars after approval.** Non-fatal if forgotten — the expiry date closes the
    window on its own, which was the point of the design.
+
+### 2b. Protein Boosters — what's needed to switch it back on (post-1.0)
+
+Researched 2026-08-18. The screen is hidden, not deleted; re-enabling is one `NavRow` in
+`NutritionHomeScreen.tsx`. Before that happens, the URLs in `routers/nutrition.py` `_MARKETPLACE`
+must be real, which means picking an affiliate route.
+
+**Route A — Amazon Associates.** The only option that covers the whole catalogue: six of the ten
+SKUs (Oikos, Fairlife Core Power, Good Culture, RXBAR, Safe Catch, The Only Bean) are grocery/CPG
+brands with no direct affiliate program.
+
+> ⚠️ **Approval must come BEFORE the links ship.** Amazon's Mobile Application Policy requires a
+> separate application. The Commission Income Statement forfeits commission on "any Product
+> purchased through a Special Link in a Mobile Application that was not an Approved Mobile
+> Application", and the Participation Requirements state that violating the Mobile Application
+> Policy "will automatically terminate the Operating Agreement" — which would kill the program for
+> the website too. Do not tag-and-test.
+
+The five criteria, and where this app stands:
+
+| Amazon requirement | Status |
+|---|---|
+| (a) available in Google Play, Apple, or Amazon app stores | ✅ once 1.0 ships |
+| (b) free to download; Amazon links reachable without paying | ✅ app is free, no paywall |
+| (c) original content | ✅ generated programs, recipes, logging |
+| (d) must not emulate Amazon's own shopping app | ✅ curated 10-item list, no search/cart |
+| (e) must not host or render Amazon pages in WebViews | ✅ `ProteinBoostersScreen.tsx` uses `Linking.openURL` → Safari. **Had this been an in-app browser it would breach (e)** |
+
+Commission on grocery/health categories is low single digits — check Amazon's current fee schedule
+rather than any blog figure.
+
+**Route B — direct brand programs.** Better rates, narrower coverage (the three powders and little
+else). Reported 2026 rates, `[unverified — confirm on each program's own page]`: Myprotein up to
+20%, Transparent Labs 15–20%, Optimum Nutrition ~12%, iHerb 5–10%.
+
+**Apple is not the constraint here.** There is no guideline prohibiting affiliate links to physical
+goods; guideline **3.1.5(a)** in fact *requires* that physical goods be paid for outside the app, so
+linking out is the mandated pattern. HB-3 was a 2.1 completeness failure, not a payments one.
+
+**Already fixed for whenever it returns:** the FTC disclosure was rendering *below* all ten product
+cards. The clear-and-conspicuous test weighs proximity and placement and treats a disclosure buried
+after a list, or at the end of a scroll, as insufficient. It now renders above the product list.
+
+**One thing to add back with it:** the privacy policy (`main.py` `_PRIVACY_HTML`) deliberately says
+nothing about affiliate commissions, because in 1.0 the screen is unreachable and describing a
+feature users can't see is just confusing. When the marketplace returns, add a short line
+disclosing the commission relationship to the "What we do NOT do" / service-providers area.
 
 ---
 

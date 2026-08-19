@@ -63,7 +63,9 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
 - **Neutron nutrition module (2026-07-07; CONFIRMED LIVE in prod 2026-07-13 —
   `/nutrition/marketplace` returns 401, so an earlier note here claiming "not
   yet deployed" was stale):** see `NEUTRON_SPEC.md`.
-  Protein profile (1 g/kg auto target + bodyweight logging), "Scan My Kitchen"
+  Protein profile (auto target from bodyweight — originally 1 g/kg, now a
+  configurable multiplier defaulting to 1.52 g/kg; see the 2026-07-13 entry —
+  plus bodyweight logging), "Scan My Kitchen"
   (pantry/fridge photos → Bedrock forced-tool food list → user-confirmed pantry; photos
   never stored), recipe generation + vegan/vegetarian adapt + Surprise-Me day plan
   (Bedrock text Converse, hard dietary constraints incl. Alpha-Gal), protein logging with
@@ -299,9 +301,84 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
     rewritten for the deletion flow. Tests: `python3 -m tests.test_deletion`
     (13 pass). `tsc --noEmit` clean; backend `py_compile` clean; existing couch/
     gamification/custom_exercise suites still pass.
-  - Still open from the audit: HB-3 Protein Boosters placeholder links, HB-4
-    Info.plist purpose strings, HB-5 medical disclaimer, HB-6 website fake
-    rating, HB-7 full privacy-policy data inventory.
+  - **Permission purpose strings (HB-4, guideline 5.1.1(i)).** The camera and
+    photo-library strings claimed equipment use only, but `KitchenScanScreen`
+    uses the same two permissions for kitchen/fridge photos. Both rewritten in
+    `ios/WeightProgram/Info.plist` to name both uses and state that kitchen
+    photos are never stored (verified against `routers/nutrition.py` —
+    `scan_pantry` persists nothing), and mirrored into `app.json`'s
+    `expo-image-picker` block so a future `prebuild` can't revert them
+    (runbook gotcha #12). **Native change — needs a new app build to reach the
+    binary.**
+  - **Protein Boosters hidden for 1.0 (HB-3, guideline 2.1).** All ten
+    `_MARKETPLACE` URLs are still `example.com` placeholders, and the screen
+    told the user so ("Affiliate partnerships aren't live yet") — two taps from
+    the Nutrition tab, which is a straight App Completeness rejection. The
+    entrance NavRow in `NutritionHomeScreen.tsx` is commented out with
+    re-enable instructions; the App.tsx route, `ProteinBoostersScreen` and
+    `GET /nutrition/marketplace` are all untouched, so switching it back on is
+    one JS-only edit. Also moved the FTC affiliate disclosure ABOVE the product
+    list (it rendered below all ten cards, which fails the clear-and-conspicuous
+    proximity/placement test). Affiliate-program options for the 1.1 re-enable —
+    including the trap that **Amazon Associates terminates the agreement if a
+    tagged link ships from an unapproved app** — are written up in
+    `APPSTORE_READINESS.md` §2b.
+  - **Medical disclaimers (HB-5, guideline 1.4.1).** The app frames itself
+    around prescription GLP-1 use, derives a numeric protein target from
+    bodyweight, prescribes training loads to beginners, and generates meals
+    under allergy constraints `neutron_recipes.py` itself calls "a life-safety
+    allergy" — and carried NO disclaimer anywhere (the only two in the repo
+    were on the marketing site). Added persistent, non-dismissible notices at
+    the three points where the app actually instructs: `OnboardingScreen`
+    (training), `NutritionSetupScreen` (protein target + GLP-1 framing), and
+    the generated-recipe view in `RecipesScreen` (AI content + allergens,
+    placed ABOVE the "I made this"/"Save" actions so it's read before the food
+    is eaten). Matching Health & safety sections added to `/privacy` and
+    `/support` in `main.py`. Also softened two clinical-sounding claims: the
+    uncited "research supports 1 g/kg as the bare minimum" and the preset
+    labelled "GLP-1 minimum" — the app can't substantiate a medical threshold.
+    All wording owner-approved. JS-only on mobile; `main.py` change ships with
+    the next backend deploy.
+  - **Website fabricated social proof removed (HB-6, guideline 2.3).** Deleted
+    the social-proof bar (invented "4.9 App Store rating" for an unreleased app
+    + three "As seen in" outlets that never covered us) and the entire
+    transformations section (three fabricated testimonials with invented named
+    people, invented weight-loss/lift numbers, and quotes naming tirzepatide and
+    semaglutide). Deleted rather than commented out — HTML comments ship to the
+    browser, so commented-out fake reviews are still visible in view-source.
+    Recoverable from git history; the conditions for restoring them are written
+    into `website/WEBSITE_BRIEF.md`. Neither section had an `id` and no nav link
+    targeted them, so removal was clean (512 → 473 lines, HTML still
+    well-formed). Then closed the second half: the four dead `href="#"` store
+    buttons are gone — the two App Store buttons became non-clickable "Coming
+    soon to the App Store" badges (`<span>`, not `<a>`, since an App Store URL
+    404s until the app is actually released), and both Google Play buttons were
+    REMOVED because Android isn't shipping for 1.0 (promising a download on an
+    unshipped platform is the same 2.3 accuracy problem as the fake rating).
+    Site now has zero dead links and zero unverifiable claims (512 → 457 lines,
+    all internal anchors resolve). **Launch-day step:** convert the badges back
+    to real links — exact markup in `website/WEBSITE_BRIEF.md` §"Switching the
+    store buttons on". Website deploys via runbook §F (S3 + CloudFront
+    invalidation), not the backend deploy.
+  - **Privacy policy full data inventory (HB-7, guidelines 5.1.1/5.1.2).** The
+    old policy listed 5 items and predated the entire nutrition module. Rewrote
+    `_PRIVACY_HTML` in `main.py` to disclose everything the code actually
+    handles: account fields (incl. the optional phone on `EmailEntryScreen`),
+    workout logs + the 1–5 readiness rating, body-weight history, protein
+    settings, dietary restrictions/allergies (flagged as sensitive), food and
+    protein logs, pantry items and saved recipes, equipment photos (opt-in
+    storage) vs kitchen photos (never stored — different retention, now stated
+    as such), on-device voice transcription vs the text phrases that DO leave
+    the device, and typed exercise descriptions. New sections: how AI processing
+    works (Bedrock in our own account; the shared phrase cache holds no account
+    link), what we never collect (medication, location, contacts, health app,
+    ad identifiers), data-subject rights, US processing, and policy changes.
+    **Audit correction:** an earlier draft of `APPSTORE_READINESS.md` claimed no
+    screen collects a phone number — `EmailEntryScreen.tsx:55-59` does. The
+    privacy nutrition label in §1.6 was wrong as a result and is now fixed;
+    declare Contact Info → Phone as collected.
+  - **All 7 hard blockers from the audit are now closed in code.** What's left
+    before submission is operational, not code — see `APPSTORE_READINESS.md`.
 
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` ·
@@ -323,10 +400,20 @@ parse, log, summary, marketplace) · `/gamification/summary` ·
    (add it to Express's managed host rule, or a dedicated ALB).
 5. DB schema via `init_models` create_all on boot — move to Alembic before real users.
 6. App: `WorkoutScreen` keyboard-avoidance fix ready (not yet in a shipped build).
-7. `TUTORIAL.md` (§3.4, FAQ) and `website/index.html` still tell users to email support to
-   delete their account. That is correct for the *shipped* build (`ios.buildNumber` still 2)
-   and becomes wrong the moment the deletion backend deploys and the app build ships —
-   rewrite both to "Home → menu → Delete account" as part of that release.
+7. ~~`TUTORIAL.md` (§3.4, FAQ) and `website/index.html` still tell users to email support to
+   delete their account.~~ **Done 2026-08-19.** `TUTORIAL.md` now documents "Home → menu →
+   Delete account" (new §4.7 + FAQ) marked **(next build)**, and keeps the email route as the
+   path that works on the *shipped* build (`ios.buildNumber` still 2). `website/index.html`
+   carries no account-deletion copy at all, so nothing to change there. **Drop the
+   "(next build)" tags from `TUTORIAL.md` once the deletion backend is deployed and the app
+   build ships.**
+8. `TUTORIAL.md` header now warns that the tab bar, beginner mode, program customization,
+   in-app safety notices and account deletion are not in the build on users' devices. That
+   warning must be removed with the same release as item 7.
+9. `README.md` documents Increments 1–4 plus account deletion, but has no section for
+   Neutron (Increment 5), Couch-to-Weights, gamification or the analytics API. Pre-existing
+   gap, not introduced by the 2026-08-19 pass — `PROJECT_STATE.md` §"API surface" is the
+   accurate list in the meantime.
 
 ## Deploy reality (see OPERATIONS_RUNBOOK.md for full detail)
 - Build backend from `~/wp-backend-build` (internal disk), NOT the exFAT project drive.

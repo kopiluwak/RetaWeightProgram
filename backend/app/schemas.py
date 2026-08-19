@@ -7,6 +7,8 @@ Nutrition (Neutron) schemas live inline in routers/nutrition.py.
 """
 from __future__ import annotations
 
+import datetime as dt
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -79,6 +81,18 @@ class MeOut(BaseModel):
     training_mode: str
     name: str | None = None
     habits: HabitsOut | None = None
+    # Account deletion (5.1.1(v)). Both null for an active account. When set, the
+    # app routes to the restore screen instead of the normal shell.
+    deletion_requested_at: dt.datetime | None = None
+    deletion_scheduled_for: dt.datetime | None = None
+
+
+class DeletionStatusOut(BaseModel):
+    """Result of requesting or cancelling account deletion."""
+    pending: bool
+    deletion_scheduled_for: dt.datetime | None = None
+    grace_period_days: int
+    message: str
 
 
 # --- Inventory (Increment 2) ---

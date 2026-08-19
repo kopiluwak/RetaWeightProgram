@@ -296,6 +296,16 @@ eas-cli upgrade.
 ---
 
 ## E. Pre-public-launch checklist (open items)
+- [x] **Medical disclaimers (2026-08-18)** — App Store 1.4.1. Persistent (non-dismissible) notices
+      on `OnboardingScreen`, `NutritionSetupScreen` and generated recipes in `RecipesScreen`, plus
+      Health & safety sections on `/privacy` and `/support` in `main.py`. Also softened the
+      "research supports 1 g/kg" claim and relabelled the "GLP-1 minimum" preset.
+      **Any future copy touching weight loss, GLP-1 or protein targets needs the same care** —
+      don't reintroduce a clinical-sounding threshold the app can't substantiate.
+- [x] **iOS permission purpose strings (2026-08-18)** — App Store 5.1.1(i). Camera and photo-library
+      strings now cover BOTH uses (equipment + kitchen/food), not just equipment. Edited in
+      `ios/WeightProgram/Info.plist` and mirrored into `app.json`'s `expo-image-picker` block so a
+      future `prebuild` can't revert them. Native change → needs a new app build to take effect.
 - [x] **In-app account deletion (2026-08-18)** — App Store 5.1.1(v). `POST`/`DELETE /me/deletion`,
       30-day grace window, anonymising fold into `exercise_stat_bins`, purge sweep in
       `app/deletion.py`. Home menu → Delete account; restore gate on re-login.
@@ -310,14 +320,37 @@ eas-cli upgrade.
       dedicated ALB) so the blue/green re-point step goes away.
 - [ ] Move DB schema to Alembic migrations (currently `init_models` create_all on boot).
 - [ ] App: clear/cap photos in `CaptureScreen`; add keyboard-avoidance in `WorkoutScreen`.
-- [ ] Neutron: swap the marketplace placeholder URLs in `routers/nutrition.py`
-      (`_MARKETPLACE`) for real affiliate links and re-check the disclosure copy;
-      re-verify product prices/protein before launch.
-- [ ] Neutron: privacy policy in `main.py` mentions equipment photos only — add a line
-      covering kitchen-scan photos (processed for recognition, never stored) before launch.
-- [ ] Website: replace placeholders before launch — store links (`href="#"`), fake
-      ratings/press bar, placeholder testimonials, `og:image`. Full list in
-      `website/WEBSITE_BRIEF.md`. Don't publish while nutrition scan is unshipped.
+- [x] **Protein Boosters hidden for 1.0 (2026-08-18)** — App Store 2.1. The entrance NavRow in
+      `NutritionHomeScreen.tsx` is commented out; route, screen and `/nutrition/marketplace` are
+      untouched. FTC disclosure moved above the product list.
+- [ ] Neutron (post-1.0): swap the `_MARKETPLACE` placeholder URLs in `routers/nutrition.py` for
+      real affiliate links, re-verify prices/protein, then restore the NavRow (JS-only change).
+      **Amazon Associates requires app approval BEFORE any tagged link ships — shipping one from an
+      unapproved app terminates the Operating Agreement.** Full criteria + the direct-brand
+      alternative in `APPSTORE_READINESS.md` §2b.
+- [x] **Privacy policy rewritten (2026-08-18)** — App Store 5.1.1/5.1.2. `_PRIVACY_HTML` in
+      `main.py` now discloses every data type the code actually handles: account fields (incl. the
+      optional phone on the sign-in screen), workout logs + readiness ratings, body weight history,
+      protein settings, dietary restrictions/allergies, food and protein logs, pantry and saved
+      recipes, equipment photos (opt-in storage) vs kitchen photos (never stored), on-device voice
+      transcription vs the text phrases that do leave the device, and typed exercise descriptions.
+      Plus AI-processing, never-collect, rights, international-transfer and change sections.
+      **Keep it in sync** — any new field or new AI call needs a line here.
+- [x] **Website: fabricated social proof removed (2026-08-18)** — invented "4.9 App Store rating",
+      three fictional press outlets, and three fabricated testimonials (which attributed invented
+      results to tirzepatide/semaglutide by name) deleted from `website/index.html`. Recoverable
+      from git history; conditions for putting them back are in `website/WEBSITE_BRIEF.md`.
+- [x] **Website store buttons resolved (2026-08-18)** — the four `href="#"` buttons are gone.
+      App Store buttons are now non-clickable "Coming soon" badges; Google Play buttons removed
+      (Android isn't shipping). **On launch day**, convert the badges back to real links — exact
+      before/after markup is in `website/WEBSITE_BRIEF.md` §"Switching the store buttons on".
+      The Apple ID comes from App Store Connect → App Information; the URL 404s until release,
+      which is why it isn't pre-set.
+- [ ] Website: remaining polish before publishing — add `og:image` (no tag exists at all, so link
+      previews render bare) and confirm `support@glpsteel.com` actually receives mail (SES sends
+      from `no-reply@`). Don't publish while the nutrition scan is unshipped.
+      **Note:** deploying the site is §F (S3 + CloudFront invalidation) — unrelated to the
+      backend deploy in §A.
 
 ---
 

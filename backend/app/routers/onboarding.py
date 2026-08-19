@@ -14,11 +14,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import couch as couch_logic
+from .. import deletion
 from ..config import Settings, get_settings
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Program, User, UserHabits
-from ..schemas import CouchStateOut, HabitsIn, HabitsOut, MeOut
+from ..schemas import CouchStateOut, DeletionStatusOut, HabitsIn, HabitsOut, MeOut
 
 router = APIRouter(tags=["onboarding"])
 
@@ -88,6 +89,52 @@ async def me(
         training_mode=user.training_mode,
         name=user.name,
         habits=_habits_out(habits, couch),
+        deletion_requested_at=user.deletion_requested_at,
+        deletion_scheduled_for=(
+            deletion.scheduled_purge_at(user.deletion_requested_at)
+            if user.deletion_requested_at else None
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Account deletion (App Store Review Guideline 5.1.1(v))
+# ---------------------------------------------------------------------------
+@router.post("/me/deletion", response_model=DeletionStatusOut)
+async def request_account_deletion(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Start account deletion. Signs the user out everywhere immediately.
+
+    The rows survive for the grace window so the user can change their mind;
+    after that the purge job hard-deletes them. Idempotent — calling it again
+    does not push the purge date back.
+    """
+    scheduled = await deletion.request_deletion(db, user)
+    return DeletionStatusOut(
+        pending=True,
+        deletion_scheduled_for=scheduled,
+        grace_period_days=deletion.GRACE_PERIOD_DAYS,
+        message=(
+            f"Your account is scheduled for deletion on {scheduled.date().isoformat()}. "
+            "Sign in before then to cancel."
+        ),
+    )
+
+
+@router.delete("/me/deletion", response_model=DeletionStatusOut)
+async def cancel_account_deletion(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a pending deletion and keep the account."""
+    await deletion.cancel_deletion(db, user)
+    return DeletionStatusOut(
+        pending=False,
+        deletion_scheduled_for=None,
+        grace_period_days=deletion.GRACE_PERIOD_DAYS,
+        message="Your account is active again. Nothing was deleted.",
     )
 
 

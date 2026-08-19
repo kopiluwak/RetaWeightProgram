@@ -30,13 +30,65 @@ You already own **glpsteel.com** — use it. Worth also grabbing (redirects + br
 
 ## Pre-launch checklist (placeholders to replace)
 
-1. App Store / Google Play links — currently `href="#"` (2 spots: hero + final CTA).
-2. Social-proof bar — rating "4.9" and press names (MenoWell, GLP-1 Digest, Strength Weekly) are invented placeholders. Replace or delete.
-3. Transformations section — all three stories are fabricated and labeled "placeholder testimonial" in visible text and HTML comments. Replace with real, permission-granted stories or remove.
-4. `og:image` — add a real image + `og:image` tag.
+1. ~~App Store / Google Play links `href="#"`~~ — **RESOLVED 2026-08-18.** Both App Store buttons
+   are now non-clickable "Coming soon to the App Store" badges (`<span>`, not `<a>`), and both
+   Google Play buttons were removed since Android isn't shipping. Nothing on the page is dead or
+   claims a download that doesn't exist. See "Switching the store buttons on" below for the
+   launch-day change.
+2. ~~Social-proof bar~~ — **REMOVED 2026-08-18.** Held an invented "4.9 App Store rating" for an
+   unreleased app plus three "As seen in" outlets (MenoWell, GLP-1 Digest, Strength Weekly) that
+   had never covered us.
+3. ~~Transformations section~~ — **REMOVED 2026-08-18.** Three fabricated testimonials with
+   invented named people, invented weight-loss and lift numbers, and quotes naming tirzepatide
+   and semaglutide.
+4. `og:image` — no `og:image` tag exists at all (not a placeholder — genuinely absent). Add a real
+   image and the tag before launch, or link previews render bare.
 5. `mailto:support@glpsteel.com` — confirm this address exists (SES currently sends from no-reply@).
 6. Nutrition features are marketed as live — don't publish until the food-scan feature ships.
 7. Stats ("≈40% lean mass", "2× halve lean-mass loss") — directional figures from GLP-1 lean-mass literature; verify against sources you're comfortable citing before launch.
+
+### Switching the store buttons on (launch day)
+
+Two spots in `index.html`: the hero (`id="download"`) and the final CTA. Both currently render a
+non-clickable badge. To go live, wrap each in an anchor and change the small line of text:
+
+```html
+<!-- from -->
+<span class="inline-flex …" role="text">
+  <svg …></svg>
+  <span …><span …>Coming soon to the</span><span …>App Store</span></span>
+</span>
+
+<!-- to -->
+<a href="https://apps.apple.com/app/idAPPLE_ID_HERE" class="inline-flex … hover:opacity-90 transition-opacity" aria-label="Download on the App Store">
+  <svg …></svg>
+  <span …><span …>Download on the</span><span …>App Store</span></span>
+</a>
+```
+
+- `APPLE_ID_HERE` is the numeric Apple ID from **App Store Connect → your app → App Information**.
+  It already exists (the app record was created for TestFlight) — but the URL **404s until the app
+  is actually released**, which is why the badge exists rather than a pre-set link.
+- Restore the `hover:` classes on the anchor; they were dropped from the span because a
+  non-interactive element shouldn't have hover affordance.
+- Then deploy via runbook §F — **the CloudFront invalidation is required**, or the old page
+  persists for up to 24h.
+
+**Android:** the Google Play markup is in git history (2026-08-18 commit). The FAQ still says
+"iOS today, with Android on the way" — accurate once iOS is live, but revisit it if Android slips.
+
+### Restoring social proof later
+
+Both removed sections are recoverable from git history (`git log -p -- website/index.html`,
+the 2026-08-18 commit). Before putting either back:
+
+- **Ratings must be real and current.** Quote the actual App Store rating, or don't show one.
+- **Testimonials need written permission** from a real user, and any number you print
+  (weight lost, lifts added, protein averages) has to be one you can substantiate.
+- **Be careful attributing results to a medication.** The removed quotes named tirzepatide and
+  semaglutide by brand. Invented outcomes tied to a prescription drug are a materially bigger
+  problem than ordinary marketing puffery — and that exposure is independent of Apple.
+- Press logos need an actual article you can link to.
 
 ## Content brief by section
 

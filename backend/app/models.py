@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -50,6 +50,15 @@ class User(Base):
     token_epoch: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+    # 5.1.1(v) account deletion. NULL = active. Set = the user asked to be
+    # deleted; the account is in the grace window and the purge job (deletion.py)
+    # will hard-delete it once GRACE_PERIOD_DAYS have passed. Clearing it back to
+    # NULL cancels. Deliberately a timestamp rather than a bool so the scheduled
+    # purge date is derivable and can be shown to the user.
+    deletion_requested_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     habits: Mapped["UserHabits | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
@@ -409,3 +418,47 @@ class WorkoutBadge(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
     badge_key: Mapped[str] = mapped_column(String(40), nullable=False)
     awarded_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+# ----------------------------------------------------------------------------
+# Anonymous training statistics (account deletion — see app/deletion.py)
+# ----------------------------------------------------------------------------
+class ExerciseStatBin(Base):
+    """A global histogram of logged sets, retained after an account is purged.
+
+    This is the ONLY thing that survives account deletion, and it is deliberately
+    a counter rather than a copy of the rows. Stripped-but-preserved set rows
+    would still leak per-person structure — a few hundred rows written in one
+    transaction with sequential ids are trivially regroupable into one person's
+    training history, which makes them pseudonymous, not anonymous. Incrementing
+    a count into a shared bin destroys that structure: once folded in, there is
+    nothing left to attribute to anybody.
+
+    Consequently there is NO user_id, NO foreign key, and NO timestamp of any
+    kind on this table — a `created_at` would reintroduce the grouping we just
+    removed. What survives is the distribution the progression engine actually
+    needs (which loads and rep ranges people work at, by experience band).
+    """
+
+    __tablename__ = "exercise_stat_bins"
+    __table_args__ = (
+        UniqueConstraint(
+            "exercise_name", "weight_lb", "reps", "rir", "experience", "days_per_week",
+            name="uq_exercise_stat_bin_dims",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    exercise_name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    # EVERY dimension is NOT NULL on purpose. Postgres treats NULLs as distinct in
+    # a unique constraint, so a nullable dimension would never collide and every
+    # set would get its own row — which is precisely the per-user grouping this
+    # table exists to destroy. `SetLog.weight` IS nullable (bodyweight movements),
+    # so the fold maps that to 0.0 rather than passing NULL through. Weight is
+    # rounded to 1dp so float equality is deterministic and bins actually merge.
+    weight_lb: Mapped[float] = mapped_column(Float, nullable=False)
+    reps: Mapped[int] = mapped_column(Integer, nullable=False)
+    rir: Mapped[int] = mapped_column(Integer, nullable=False)
+    experience: Mapped[str] = mapped_column(String(20), nullable=False)
+    days_per_week: Mapped[int] = mapped_column(Integer, nullable=False)
+    observations: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

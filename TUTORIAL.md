@@ -2,6 +2,12 @@
 
 *Version: TestFlight Beta (2026) · Applies to iOS*
 
+> **About this version:** this tutorial describes the **upcoming** release. Several things
+> below — the bottom tab bar, beginner mode, program customization, the in-app safety
+> notices, and in-app account deletion — are finished but are **not in the TestFlight build
+> currently on your device**; they arrive with the next build. Items that change what you
+> should do *today* are marked **(next build)** where they appear.
+
 ---
 
 ## 1. Introduction
@@ -18,8 +24,11 @@ Beyond training, the **Neutron** nutrition module helps you hit your daily prote
 - How to track progress, PRs, and trends
 - How to use Neutron for protein tracking, kitchen scans, recipes, and voice logging
 - How streaks, XP, and achievements work
+- How to delete your account, and what happens to your data
 
 > **Note:** No password is ever created or stored. WeightProgram uses one-time email codes for all sign-ins.
+
+> **Health & safety:** WeightProgram gives general fitness and nutrition information — **not medical advice**. Check with your doctor before starting a new training program, and talk to your doctor or dietitian about the right protein intake for you, especially if you take GLP-1 or other prescription medication. The app repeats this where it matters: on the onboarding screen, on nutrition setup, and above every generated recipe.
 
 ---
 
@@ -55,12 +64,17 @@ On first sign-in, the app asks about your training habits on the **"Your trainin
 1. **Days per week** — tap a chip (3, 4, or 5). Choose what you'll realistically do, not your ideal.
 2. **Session length (minutes)** — tap the time you can commit per session. Programs are built to fit this budget.
 3. **Experience** — tap **New / returning**, **Intermediate**, or **Advanced**.
-4. Tap **Continue**.
+4. Read the safety notice at the bottom of the screen — *"WeightProgram gives general fitness information, not medical advice. Check with your doctor before starting a new training program."*
+5. Tap **Continue**.
    - *Expected outcome:* you land on the **Home** screen.
 
 > **Pro tip:** You can change these settings anytime — the screen itself says so. Your next generated program will use the new answers.
 
 [Screenshot placeholder: Onboarding screen with Days per week, Session length, and Experience chips]
+
+### 2.4 Getting around
+
+A **bottom tab bar** sits on the four main destinations — **Home**, **Program**, **Progress**, and **Nutrition** — so you can jump between them at any time. Focused flows (equipment capture, a live workout, and sub-screens like Recipes or History) hide the tab bar and give you a back control instead, so you can't wander out of a session by accident.
 
 ---
 
@@ -103,9 +117,9 @@ WeightProgram doesn't have in-app chat; support is handled by email with a fast,
 
 1. Visit the support page at **https://api.glpsteel.com/support**, or
 2. Email **support@glpsteel.com** directly from your account email.
-   - *Use this for:* login problems, account deletion requests, bug reports, and feature questions.
+   - *Use this for:* login problems, bug reports, and feature questions.
 
-> **Note:** Account deletion is also handled here — email support from your account email address and your data will be removed.
+> **Note:** Deleting your account **(next build)** no longer needs an email — you do it yourself from the Home menu. See Section 4.7. Until that build reaches you, email support@glpsteel.com from your account email and your data will be removed. If you ever can't sign in to delete it yourself, support can still do it for you.
 
 ### 3.5 Help center, FAQ, and tooltips — current status
 
@@ -129,6 +143,7 @@ This is the foundation — your program is built from what you actually have.
 
 1. From **Home**, tap the equipment card (it reads **"No equipment yet"** until your first scan).
 2. On the **Scan your equipment** screen, tap the capture button and **photograph your weights, rack, bench, and machines**. Pan around and take multiple shots (you can also select photos from your library).
+   - *First time only:* iOS asks for camera and photo-library permission. The prompts cover **both** uses of the camera — gym equipment here, and your kitchen or fridge in Neutron — and state that kitchen photos are never stored.
    - *Note:* the AI analyzes up to **4 photos** per scan — make each one count. Wide, well-lit shots work best.
 3. Review the consent text about image handling, then submit.
    - *You should see:* a brief processing state while the AI identifies your equipment.
@@ -151,6 +166,10 @@ This is the foundation — your program is built from what you actually have.
 3. Read the **deficit and deload notes** included with your program — they explain how the plan protects muscle while you lose weight.
 
 > **Pro tip:** Programs are deterministic, not random — the same inputs produce the same sensible plan. If your schedule changes, update days/week and regenerate.
+
+> **Beginner mode (Couch-to-Weights):** if you chose the beginner experience level, the Program screen eases you in instead of handing you a full split. You still pick your 3/4/5-day schedule, but each training day starts with **one exercise** (8–15 minute sessions) and gains one more each week. When a new movement is offered you can tap **Add it** or **Not yet** — deferring is fine. Tap **Graduate to full program** whenever you feel ready, or **Restart at Week 1** to start the ramp over. Your logged workouts are kept either way.
+
+**Adjusting your program.** The Program screen's manage card lets you **Regenerate program**, **Add an exercise** from the library, **Customize equipment** (turn individual equipment types on or off, or switch to bodyweight-only), and **Add equipment (scan)** to fold new gear into the plan without re-scanning everything.
 
 [Screenshot placeholder: Program screen showing a training day with exercises, sets, reps, and RIR]
 
@@ -194,11 +213,12 @@ Muscle preservation in a deficit is half training, half protein. Neutron handles
 
 1. From **Home**, tap the **Neutron** card.
 2. First time in, complete **Nutrition Setup**: enter your **bodyweight** and pick a protein target preset:
-   - **1.0 g/kg** — GLP-1 minimum
+   - **1.0 g/kg** — lower
    - **1.52 g/kg** (default, ≈ 0.69 g/lb)
-   - **2.2 g/kg** (≈ 1 g/lb)
+   - **2.2 g/kg** (≈ 1 g per lb)
    - *Expected outcome:* a daily protein target in grams, auto-calculated from your weight.
-3. Log your bodyweight here whenever it changes — your target updates automatically.
+3. Read the safety notice on this screen. Targets are calculated **from your body weight alone** and don't account for kidney, liver or other health conditions — talk to your doctor or dietitian about what's right for you, especially while you're on GLP-1 medication.
+4. Log your bodyweight here whenever it changes — your target updates automatically.
 
 [Screenshot placeholder: Nutrition Setup screen with bodyweight entry and multiplier presets]
 
@@ -216,7 +236,8 @@ Muscle preservation in a deficit is half training, half protein. Neutron handles
 1. From **Nutrition Home**, open **Recipes**.
 2. Tap **Generate** for high-protein recipes built from your confirmed pantry, **Adapt** for vegan/vegetarian versions, or **Surprise Me** for a full day plan.
    - *Note:* hard dietary constraints (including Alpha-Gal) are respected — set them in your profile.
-3. Save recipes you like for later.
+3. Read the notice above the recipe before you cook: **recipes are AI-generated and can be wrong. Always check the ingredients yourself.** If you have a food allergy, don't rely on the app alone to keep an allergen out of your meal.
+4. Save recipes you like for later.
 
 [Screenshot placeholder: Recipes screen with Generate, Adapt, and Surprise Me options]
 
@@ -232,9 +253,9 @@ Muscle preservation in a deficit is half training, half protein. Neutron handles
 
 [Screenshot placeholder: Voice Log screen with mic button, transcript, and review cards]
 
-#### Protein Boosters
+#### Protein Boosters — not in this release
 
-The curated **Protein Boosters** marketplace lists high-protein products with affiliate disclosure. Browse it from Nutrition Home — purchases happen outside the app.
+A curated **Protein Boosters** shopping list is built but **switched off**: the product links aren't real partnerships yet, so shipping it would send you to placeholder pages. There is no Protein Boosters row on Nutrition Home. It will return in a later release once the recommendations point somewhere genuinely useful.
 
 ### 4.6 Streaks, XP, and achievements
 
@@ -245,6 +266,25 @@ Gamification is woven through the app — no setup needed:
 - The **Progress** screen's Consistency card shows **shaded weekly badges** — darker means a stronger week.
 
 [Screenshot placeholder: Home screen with gamification header, streak, and weekly challenge card]
+
+### 4.7 Delete your account **(next build)**
+
+You can delete your account yourself, from inside the app. No email, no waiting on support.
+
+1. On **Home**, tap the **menu (⋮)** in the header.
+2. Tap **Delete account**.
+   - *You should see:* a summary of exactly what goes — your account, workout history, bodyweight and food logs, dietary preferences and any equipment photos you chose to share — and a reminder that you have 30 days to change your mind.
+3. Tap **Continue**, then confirm a second time on the *"Are you sure?"* prompt.
+   - *Expected outcome:* you're signed out on **every** device straight away, and you get an email confirming the date your data will be deleted.
+
+**Changed your mind?** Sign back in with a new email code any time in the next **30 days**. You'll land on a screen showing the scheduled deletion date and what happens; tap **Keep my account** and everything is restored exactly as you left it. Nothing is deleted during those 30 days.
+
+**After 30 days** your account is permanently deleted and you get a second email confirming it's done. The only thing kept is anonymous, aggregated training statistics — counts of how much weight and how many reps people work at, with no link to you or to any individual — which help the app build better programs for everyone.
+
+> **Warning:** After the 30-day window, deletion can't be undone. There is no backup copy to restore from.
+
+[Screenshot placeholder: Home overflow menu showing Delete account]
+[Screenshot placeholder: Pending deletion screen with Keep my account button]
 
 ---
 
@@ -321,7 +361,13 @@ No. Kitchen scan photos are analyzed to build your food list and never stored. E
 From your logged sets using an RIR-adjusted Epley formula, capped at 12 effective reps — so high-rep sets don't produce inflated numbers.
 
 **How do I delete my account?**
-Email **support@glpsteel.com** from your account email, or see https://api.glpsteel.com/privacy. Your data will be removed.
+**(Next build)** In the app: **Home → menu (⋮) → Delete account**. Confirm twice; you're signed out everywhere immediately and your data is permanently deleted after a 30-day grace period, during which signing back in and choosing **Keep my account** restores everything. See Section 4.7. Until that build reaches your device, email **support@glpsteel.com** from your account email. Full detail is at https://api.glpsteel.com/privacy.
+
+**What survives after I delete my account?**
+Only anonymous, aggregated training statistics — counts of how much weight and how many reps people work at, stored as shared totals with no user ID, no account link and no dates. Everything personal goes: your email address, name, equipment inventory and programs, workout and set history, bodyweight log, food and protein logs, dietary preferences and allergy settings, and any equipment photos you consented to share.
+
+**Is this medical advice?**
+No. WeightProgram gives general fitness and nutrition information only. Protein targets come from your body weight alone and don't account for kidney, liver or other health conditions. Check with your doctor before starting a new training program, and talk to your doctor or dietitian about protein — especially if you take GLP-1 or other prescription medication. Recipes are AI-generated and can be wrong, so always check the ingredients yourself before cooking or eating.
 
 **Does the app work offline?**
 Voice protein logs queue offline and sync later. Workout logging and program generation need a connection.

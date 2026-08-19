@@ -1,6 +1,8 @@
 # Couch-to-Weights — Beginner Progressive Onboarding (SPEC)
 
-Status: **APPROVED — backend implemented 2026-07-23.** Last updated 2026-07-23.
+Status: **APPROVED — backend implemented and deployed 2026-07-23; mobile
+(`CouchProgramScreen`) built and `tsc` clean but NOT yet in a shipped build.**
+Unchanged by the 2026-08-19 App Store hardening pass. Last updated 2026-08-19.
 Read `PROJECT_STATE.md` + `OPERATIONS_RUNBOOK.md` first. This spec follows the
 same structure as `NEUTRON_SPEC.md`: locked decisions up front, then data model,
 API, engine integration, mobile, copy, testing, deploy.
