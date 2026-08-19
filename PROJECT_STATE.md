@@ -1,7 +1,7 @@
 # WeightProgram — Project State (handoff)
 
 One-page onboarding for a new thread. Read this + `OPERATIONS_RUNBOOK.md` before working.
-Last updated: 2026-08-05.
+Last updated: 2026-08-19.
 
 ## What it is
 A mobile app that photographs a user's weights/equipment, uses a vision LLM to
@@ -265,8 +265,47 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   - Next: bump `ios.buildNumber` → TestFlight (runbook §C); deploy backend (runbook §A)
     so the name actually persists.
 
+- **App Store hardening (2026-08-17/18, backend + mobile built clean, NOT yet
+  deployed/shipped):** first two blockers from `APPSTORE_READINESS.md` closed.
+  - **Reviewer bypass hardened (S1/HB-2).** `config.py` gained
+    `Settings.review_bypass_state()`: the bypass now needs `REVIEW_EMAIL` +
+    `REVIEW_CODE` (≥24 chars) + `REVIEW_BYPASS_UNTIL` (hard ISO expiry) and is
+    inert past that date even if the vars remain set. `routers/auth.py` uses
+    `secrets.compare_digest`, throttles 5 misses / 15 min, and logs every
+    accept/miss; `main.py` announces the armed/inert state at boot. **The old
+    6-digit code fails the length guard, so the backdoor is closed by this
+    deploy alone** — rotating `REVIEW_CODE` on ECS is still required before
+    review. Plaintext code scrubbed from this file and the runbook (still in git
+    history — see `APPSTORE_READINESS.md` §2a).
+  - **Account deletion (HB-1, guideline 5.1.1(v)).** New `app/deletion.py`:
+    `POST /me/deletion` starts a **30-day grace window** (aligned to GDPR Art.
+    12(3), not to any Apple maximum — Apple publishes none) and revokes every
+    session; `DELETE /me/deletion` cancels; `/me` now carries
+    `deletion_requested_at` + `deletion_scheduled_for`. A 6-hourly in-process
+    sweep purges due accounts: deletes consented S3 images, folds the user's
+    sets into the new anonymous `exercise_stat_bins` histogram, then one
+    `DELETE FROM users` — all 13 user-owned tables already declare
+    `ondelete="CASCADE"`, verified against the emitted DDL, and `set_logs`
+    cascades via `workout_sessions`. `otp_codes` keys off email, not a FK, so it
+    is deleted explicitly. **Retention is a counter, not stripped rows** — see
+    the `ExerciseStatBin` docstring for why preserved rows would still be
+    per-person data. Two new `EmailSender` methods send the scheduled and
+    completed notices. Schema: nullable `users.deletion_requested_at` via
+    `_COLUMN_BOOTSTRAP` + one new table (both automatic on boot).
+    Mobile (JS-only, no new deps): `AccountApi` in `api.ts`, two-step confirm on
+    a new Home menu item, new `PendingDeletionScreen` gating the whole app while
+    deletion is pending (checked in `App.tsx` before the onboarding gate),
+    `clearSession` added to `AuthContext`. Privacy + support pages in `main.py`
+    rewritten for the deletion flow. Tests: `python3 -m tests.test_deletion`
+    (13 pass). `tsc --noEmit` clean; backend `py_compile` clean; existing couch/
+    gamification/custom_exercise suites still pass.
+  - Still open from the audit: HB-3 Protein Boosters placeholder links, HB-4
+    Info.plist purpose strings, HB-5 medical disclaimer, HB-6 website fake
+    rating, HB-7 full privacy-policy data inventory.
+
 ## API surface (all under https://api.glpsteel.com)
-`/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` · `/habits*` ·
+`/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` ·
+`/me/deletion` (POST request, DELETE cancel) · `/habits*` ·
 `/inventory` (capture, {id}/confirm, edit) · `/programs` (generate, current, {id}) ·
 `/workouts` (start, {id}/log, {id}/finish, history, last-performance) ·
 `/analytics` (summary, exercises, exercises/{name}, history) ·
@@ -284,6 +323,10 @@ parse, log, summary, marketplace) · `/gamification/summary` ·
    (add it to Express's managed host rule, or a dedicated ALB).
 5. DB schema via `init_models` create_all on boot — move to Alembic before real users.
 6. App: `WorkoutScreen` keyboard-avoidance fix ready (not yet in a shipped build).
+7. `TUTORIAL.md` (§3.4, FAQ) and `website/index.html` still tell users to email support to
+   delete their account. That is correct for the *shipped* build (`ios.buildNumber` still 2)
+   and becomes wrong the moment the deletion backend deploys and the app build ships —
+   rewrite both to "Home → menu → Delete account" as part of that release.
 
 ## Deploy reality (see OPERATIONS_RUNBOOK.md for full detail)
 - Build backend from `~/wp-backend-build` (internal disk), NOT the exFAT project drive.

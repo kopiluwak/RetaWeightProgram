@@ -61,6 +61,20 @@ Then in the console:
    `POST /nutrition/parse` with `{"phrases": ["grilled chicken breast"]}`
    (exercises the voice-log cache + Bedrock text path; call it twice — the
    second response must return `"cached": true`).
+8b. **Deploy carrying account deletion (2026-08-18):** adds a nullable
+   `users.deletion_requested_at` column (via `_COLUMN_BOOTSTRAP`, no manual DB
+   step) and one new table `exercise_stat_bins` (created by `init_models` on
+   boot). Also starts an in-process **purge sweep** every 6h — watch for
+   `account purge sweep started (grace period 30 days)` in the boot log.
+   Smoke-test (authed): `POST /me/deletion` returns a date ~30 days out and
+   revokes your session; sign in again, `GET /me` now carries
+   `deletion_requested_at` + `deletion_scheduled_for` and the app shows the
+   restore gate; `DELETE /me/deletion` clears it. Nothing is deleted for 30
+   days, so this is safe to exercise on a throwaway account in prod.
+   **Do not test the purge by waiting** — to verify it end-to-end, hand-set
+   `deletion_requested_at` to 31 days ago on a throwaway account and restart a
+   task, or call `deletion.purge_due_accounts()` from a shell.
+
 9. **Add-your-own-exercise classifier cache:** the new `exercise_classify_cache`
    table is created automatically by `init_models` on boot — no manual DB step.
    Smoke-test (authed, with an active program): `GET /programs/exercise-library`
@@ -282,6 +296,10 @@ eas-cli upgrade.
 ---
 
 ## E. Pre-public-launch checklist (open items)
+- [x] **In-app account deletion (2026-08-18)** — App Store 5.1.1(v). `POST`/`DELETE /me/deletion`,
+      30-day grace window, anonymising fold into `exercise_stat_bins`, purge sweep in
+      `app/deletion.py`. Home menu → Delete account; restore gate on re-login.
+      Unit tests: `python3 -m tests.test_deletion`.
 - [ ] Re-enable DB TLS (SSL context in `database.py`; revert `rds.force_ssl`).
 - [x] **Reviewer bypass hardened (2026-08-17).** Now time-boxed, length-checked, throttled,
       constant-time and logged — see gotcha #7. The old 6-digit code is inert as of this deploy.

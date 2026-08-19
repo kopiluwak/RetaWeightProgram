@@ -20,9 +20,16 @@ this app, that is stated plainly rather than padded into the risk list.
 
 | | count |
 |---|---|
-| HARD BLOCKERS (Apple will reject, or the app is unshippable as-is) | **7** |
+| HARD BLOCKERS — originally found | **7** |
+| HARD BLOCKERS — **fixed in code** (HB-1 account deletion, HB-2 reviewer backdoor) | **2** |
+| HARD BLOCKERS — **remaining** (HB-3, HB-4, HB-5, HB-6, HB-7) | **5** |
 | SHOULD-FIX (technical debt / release hygiene, not a rejection cause) | **11** |
 | Verified-clean areas (no action) | 4 |
+
+**Progress log**
+- 2026-08-17 — HB-2 reviewer backdoor hardened (time-boxed, length-checked, throttled, logged).
+- 2026-08-18 — HB-1 in-app account deletion shipped (30-day grace, anonymising fold, purge sweep).
+  Privacy and support pages rewritten for the deletion flow; the rest of HB-7 is still open.
 
 The single most surprising result: **`ios/WeightProgram/Info.plist` is currently correct.** All five
 permission strings the code actually needs are present. The ITMS-90683 class of failure is closed —
@@ -245,7 +252,7 @@ submission; if so it predates the nutrition module and must be re-answered.
 
 | ID | Blocker | Guideline | Where | Fixable in Phase 2 scope? |
 |---|---|---|---|---|
-| **HB-1** | No in-app account deletion — backend endpoint and UI both absent | **5.1.1(v)** | all of `backend/app/routers/*.py`; `HomeScreen.tsx:111-121` | ✅ yes (new endpoint + menu item) |
+| ~~**HB-1**~~ | ~~No in-app account deletion~~ **✅ FIXED 2026-08-18** | **5.1.1(v)** | `app/deletion.py`; `POST`/`DELETE /me/deletion` in `routers/onboarding.py`; Home menu item + `PendingDeletionScreen.tsx`; `App.tsx` gate | ✅ done. 30-day grace, anonymising fold, purge sweep. Tests: `python3 -m tests.test_deletion` |
 | ~~**HB-2**~~ | ~~Live reviewer backdoor with a non-expiring fixed code, credential committed to a GitHub-pushed repo~~ **✅ CODE FIX LANDED 2026-08-17** | Not a guideline — a security defect that must not reach production | `config.py` `review_bypass_state()`; `auth.py` request-otp + verify-otp guards; `main.py` boot log | ✅ done in code. **Three manual steps remain — see §2a.** |
 | **HB-3** | Protein Boosters ships with 10 dead `example.com` links and in-app copy admitting the feature isn't live | **2.1** App Completeness | `nutrition.py:817-853`; `ProteinBoostersScreen.tsx:46-52,94` | ✅ yes (hide the entrance) — **needs your call: hide vs. supply real URLs** |
 | **HB-4** | Camera and photo-library purpose strings describe equipment only; both are also used for kitchen/food photos | **5.1.1(i)** | `Info.plist:49-50,55-56` vs `KitchenScanScreen.tsx:51,55` | ✅ yes |

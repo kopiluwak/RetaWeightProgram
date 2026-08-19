@@ -116,7 +116,9 @@ npm start
 | POST | `/auth/verify-otp` | – | Verify code, return access + refresh tokens |
 | POST | `/auth/refresh` | – | Rotate refresh token, return a new pair |
 | POST | `/auth/logout` | – | Revoke this token, or `everywhere` |
-| GET | `/me` | bearer | Current user + habits |
+| GET | `/me` | bearer | Current user + habits (+ `deletion_requested_at` / `deletion_scheduled_for` while a deletion is pending) |
+| POST | `/me/deletion` | bearer | Request account deletion — starts the 30-day grace window, revokes every session |
+| DELETE | `/me/deletion` | bearer | Cancel a pending deletion, keep the account |
 | GET | `/habits/defaults` | – | Pre-fill values for onboarding |
 | PUT | `/habits` | bearer | Save days/week, session length, experience |
 | GET | `/health` | – | Liveness |
@@ -130,3 +132,11 @@ npm start
   detection that revokes the whole token family.
 - Mobile keeps tokens in the OS secure enclave (`expo-secure-store`), never in
   AsyncStorage.
+- **In-app account deletion** (App Store 5.1.1(v)) lives in `backend/app/deletion.py`:
+  `POST /me/deletion` stamps `users.deletion_requested_at` and revokes every session,
+  the account stays recoverable for `GRACE_PERIOD_DAYS` (30, sized to GDPR Art. 12(3)),
+  and a 6-hourly in-process sweep then deletes consented S3 images, folds the user's
+  sets into the anonymous `exercise_stat_bins` histogram and hard-deletes the `users`
+  row (every user-owned table cascades on `user_id`). Retention is counters, not
+  stripped rows — see the `ExerciseStatBin` docstring. Unit tests:
+  `cd backend && python3 -m tests.test_deletion`. **Built, pending backend deploy.**
