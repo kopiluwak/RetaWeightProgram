@@ -75,6 +75,22 @@ Then in the console:
    `deletion_requested_at` to 31 days ago on a throwaway account and restart a
    task, or call `deletion.purge_due_accounts()` from a shell.
 
+8c. **Deploy carrying billing (first shipped 2026-11-05):** two new tables
+   (`entitlements`, `purchase_events`) are created on boot — no manual DB step.
+   Billing is controlled by ECS task-def env vars:
+   - `BILLING_ENFORCE` — **leave unset/`false` until the paywall-capable app
+     build is live.** Off = every scan/program build is unlimited and
+     `/billing/status` never asks for the paywall, so testers on older builds
+     are unaffected. Boot log: `billing quota enforcement OFF`.
+   - `BILLING_PROVIDER=revenuecat`, `REVENUECAT_SECRET_KEY`,
+     `REVENUECAT_WEBHOOK_SECRET` — set once RevenueCat is configured. Until
+     then production **refuses** `POST /billing/sync` with 503 and logs
+     `BILLING_PROVIDER='stub' in production — purchase sync is DISABLED` at
+     boot; that ERROR is expected while billing isn't set up. (The stub would
+     otherwise grant a free starter unlock to anyone.)
+   Smoke-test (authed): `GET /billing/status` → 200 with `"paywall_required": false`
+   while enforcement is off.
+
 9. **Add-your-own-exercise classifier cache:** the new `exercise_classify_cache`
    table is created automatically by `init_models` on boot — no manual DB step.
    Smoke-test (authed, with an active program): `GET /programs/exercise-library`

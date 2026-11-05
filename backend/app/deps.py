@@ -178,6 +178,10 @@ def require_quota(kind: Literal["equipment_scan", "meal_scan", "program_gen"]):
         db: AsyncSession = Depends(get_db),
     ) -> QuotaGuard:
         row = await get_or_create_entitlement(db, user.id)
+        if not get_settings().billing_enforce:
+            # Enforcement off: an unlimited reservation, so commit() is a no-op
+            # and nothing is ever debited or refused.
+            return QuotaGuard(kind, db, row, billing.Reservation(kind=kind, unlimited=True))
         state = billing.EntitlementState.from_row(row)
         # Raises billing.QuotaExhausted -> 402 with the paywall body.
         reservation = billing.reserve(state, kind)

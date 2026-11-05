@@ -79,7 +79,7 @@ def _status_out(user: User, state: billing.EntitlementState,
         trial_ends_at=state.trial_ends_at.isoformat() if billing.starter_window_open(state, at) else None,
         trial_seconds_left=billing.trial_seconds_left(state, at),
         pro_expires_at=state.pro_expires_at.isoformat() if billing.pro_active(state, at) and state.pro_expires_at else None,
-        paywall_required=billing.paywall_required(state, at),
+        paywall_required=billing.paywall_required(state, at) and get_settings().billing_enforce,
         app_user_id=user.id,
         products={
             "starter": billing.PRODUCT_STARTER_UNLOCK,
@@ -182,6 +182,14 @@ async def billing_sync(
     state = billing.EntitlementState.from_row(row)
     now = _now()
 
+    # Fail closed: the stub provider reports `starter` as owned, so in
+    # production it would hand a free $14.99 unlock to anyone who calls this.
+    # (2026-11-05 — config.py defaults billing_provider to "stub".)
+    if settings.environment == "production" and settings.billing_provider != "revenuecat":
+        _log.error("billing sync refused: BILLING_PROVIDER=%r in production",
+                   settings.billing_provider)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
+                            "Billing is not configured on this server")
     if settings.billing_provider == "revenuecat" and not settings.revenuecat_secret_key:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE,
                             "Billing is not configured (REVENUECAT_SECRET_KEY missing)")

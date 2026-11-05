@@ -57,6 +57,11 @@ async def lifespan(app: FastAPI):
     # deploy doesn't leave the sweep mid-transaction.
     purge_task = asyncio.create_task(deletion.purge_loop())
     _log.info("account purge sweep started (grace period %d days)", deletion.GRACE_PERIOD_DAYS)
+    _log.info("billing quota enforcement %s", "ON" if settings.billing_enforce else "OFF (BILLING_ENFORCE=false)")
+    if settings.environment == "production" and settings.billing_provider != "revenuecat":
+        _log.error("BILLING_PROVIDER=%r in production — purchase sync is DISABLED "
+                   "(set BILLING_PROVIDER=revenuecat + REVENUECAT_SECRET_KEY + "
+                   "REVENUECAT_WEBHOOK_SECRET on the ECS task def)", settings.billing_provider)
     try:
         yield
     finally:
@@ -100,7 +105,7 @@ _PRIVACY_HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WeightProgram — Privacy Policy</title>
 <style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.6;color:#1a1a1a}h1{font-size:28px}h2{font-size:20px;margin-top:32px}.muted{color:#666;font-size:14px}</style></head><body>
-<h1>WeightProgram Privacy Policy</h1><p class="muted">Last updated: August 18, 2026</p>
+<h1>WeightProgram Privacy Policy</h1><p class="muted">Last updated: November 5, 2026</p>
 <p>WeightProgram ("we," "us") builds resistance-training programs from photos of the equipment you own, and helps you track your workouts and protein intake. This policy explains exactly what we collect, why, who else sees it, and how to get rid of it. We designed the app to collect as little as possible — but this page lists everything, not just the flattering parts.</p>
 
 <h2>Information we collect</h2>
@@ -129,10 +134,13 @@ _PRIVACY_HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <li><strong>Voice meal logging</strong> — your speech is transcribed <strong>on your device</strong>; the audio never reaches us. If a phrase can't be matched on-device, that short text phrase (for example "two eggs and a slice of toast") is sent to our AI provider to estimate its protein content.</li>
 <li><strong>Exercise descriptions you type</strong> — if you describe a movement in your own words, that text is sent to our AI provider to classify it.</li></ul>
 
+<p><strong>Purchases</strong></p><ul>
+<li><strong>Purchase history and remaining allowances</strong> — which in-app purchases or subscription you have, when they were made, and how many scans and program builds you have left. Payment itself is handled entirely by Apple; we never see your card or billing details.</li></ul>
+
 <h2>What we never collect</h2><ul>
 <li><strong>Medication information.</strong> The app is designed for people on GLP-1-class medication, but we never ask which drug you take, or whether you take one at all, and there is nowhere in the app to tell us.</li>
 <li>Location, contacts, calendar, health-app data, or motion and fitness sensors. The app requests none of these permissions.</li>
-<li>Advertising identifiers. There are no third-party analytics, advertising or tracking SDKs in the app.</li></ul>
+<li>Advertising identifiers. There are no third-party analytics, advertising or tracking SDKs in the app. The only third-party SDK is RevenueCat, used solely to process in-app purchases (see Service providers).</li></ul>
 
 <h2>How AI processing works</h2>
 <p>Equipment recognition, food recognition, recipe generation and food-phrase estimates run on Amazon Bedrock, inside our own AWS account. Your content is not used to train anyone else's models.</p>
@@ -142,7 +150,7 @@ _PRIVACY_HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 
 <h2>What we do NOT do</h2><ul><li>We do <strong>not</strong> sell your data.</li><li>We do <strong>not</strong> share your data or photos for advertising.</li><li>We do <strong>not</strong> track you across other apps or websites.</li><li>We do <strong>not</strong> show ads.</li></ul>
 
-<h2>Service providers</h2><p>We use Amazon Web Services to host the app, store data, send login emails, and run the AI recognition described above — all within our own controlled AWS environment in the United States. We do not share your personal data with any other third party. If you are outside the United States, your data is processed there.</p>
+<h2>Service providers</h2><p>We use Amazon Web Services to host the app, store data, send login emails, and run the AI recognition described above — all within our own controlled AWS environment in the United States. In-app purchases are processed by <strong>Apple</strong> and managed through <strong>RevenueCat</strong> (revenuecat.com), which receives only our random user ID for your account plus your App Store purchase and subscription records — never your email, name, health, workout or nutrition data. RevenueCat processes this on our behalf to confirm and restore purchases. We do not share your personal data with any other third party. If you are outside the United States, your data is processed there.</p>
 
 <h2>Security</h2><p>Data is encrypted in transit and at rest. Login tokens are stored in your device's secure storage (Keychain on iOS). Sessions can be revoked instantly, and signing out on one device does not leave others authorised.</p>
 
@@ -154,7 +162,7 @@ _PRIVACY_HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <h2>Deleting your account</h2>
 <p>Open the menu on the Home screen and choose <strong>Delete account</strong>. You do not need to email us.</p>
 <p>When you confirm, you are signed out everywhere immediately and your account enters a <strong>30-day grace period</strong>. Nothing is deleted during that time: if you change your mind, sign back in and choose &ldquo;Keep my account&rdquo;. We email you when deletion is scheduled and again once it is complete.</p>
-<p>After 30 days we permanently delete your email address, any name you gave us, your equipment inventory and generated programs, your workout and set history, your bodyweight log, your food and protein logs, your dietary preferences and allergy settings, and any equipment photos you chose to share.</p>
+<p>After 30 days we permanently delete your email address, any name you gave us, your equipment inventory and generated programs, your workout and set history, your bodyweight log, your food and protein logs, your dietary preferences and allergy settings, any equipment photos you chose to share, and our record of your purchases and remaining allowances. Apple and RevenueCat keep their own transaction records (which carry no name or email from us) as required for billing, refunds and tax; deleting your account does not cancel an active subscription — cancel it in your Apple ID settings.</p>
 <p><strong>What we keep:</strong> anonymous, aggregated training statistics — counts of how many times a given exercise was logged at a given weight, rep count and effort level. These are stored as shared totals with no user identifier, no account link and no dates, so they cannot be traced back to you or to any individual. We keep them to improve the training programs the app generates for everyone.</p>
 <p>The shared food-phrase and exercise-name dictionary described above is not deleted, because those entries carry no link to your account and are not personal to you.</p>
 <h2>Changes to this policy</h2><p>If we change what we collect or how we use it, we will update this page and change the date at the top. Material changes will also be surfaced in the app.</p>

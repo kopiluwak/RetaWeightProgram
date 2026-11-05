@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     # network call so the whole purchase -> quota flow is walkable offline with
     # no RevenueCat account, and "revenuecat" is the production path.
     billing_provider: str = "stub"  # stub | revenuecat
+    # Master switch for quota enforcement (2026-11-05). False = every metered
+    # endpoint behaves as unlimited and /billing/status never asks for the
+    # paywall, so the backend can ship before the paywall-capable app build and
+    # before RevenueCat/App Store products exist. Purchases still sync and
+    # credit normally. Set BILLING_ENFORCE=true on ECS when the new build ships.
+    billing_enforce: bool = False
     # Secret (server) API key, used ONLY for the server-side reconcile call
     # GET /v1/subscribers/{app_user_id}. Never shipped to the device — the app
     # gets the separate public SDK key. Empty = /billing/sync refuses to run.

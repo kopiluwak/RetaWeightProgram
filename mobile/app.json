@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "icon": "./assets/icons/icon.png",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "icon": {

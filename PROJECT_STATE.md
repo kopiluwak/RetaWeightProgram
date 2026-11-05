@@ -1,7 +1,7 @@
 # WeightProgram — Project State (handoff)
 
 One-page onboarding for a new thread. Read this + `OPERATIONS_RUNBOOK.md` before working.
-Last updated: 2026-08-23.
+Last updated: 2026-11-05.
 
 ## What it is
 A mobile app that photographs a user's weights/equipment, uses a vision LLM to
@@ -435,6 +435,31 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
     deploy the backend (runbook §A) so the day count sticks and history carries
     `day_index`.
 
+- **New Mac + Xcode 27 + pre-deploy fixes (2026-11-05, NOT yet deployed/shipped):**
+  project moved to a new Mac mini (Xcode 27.2, iOS 27.2 simulator). Runs on the
+  simulator and signs in against prod. Changes:
+  - **Starter unlock now includes 10 program builds** (`STARTER_PROGRAM_GENS`
+    in `billing.py`) that do NOT expire with the 7-day scan window; refunding
+    the starter claws back only those 10. Before this, a $14.99 buyer could scan
+    but hit a second paywall at their first program. Paywall copy updated.
+    3 new tests (billing 36/36).
+  - **Xcode 27 native fixes** (runbook gotcha #13): Podfile `post_install`
+    raises pod deployment targets to 15.1; UIScene lifecycle adopted
+    (`SceneDelegate` in `AppDelegate.swift` + `UIApplicationSceneManifest` in
+    Info.plist — iOS 27 kills non-scene apps at launch); `expo run:ios` is
+    broken by Simulator.app → DeviceHub.app, manual build/launch commands in
+    the runbook.
+  - **Dark mode enabled for 1.0** — `UIUserInterfaceStyle` Light → Automatic
+    (Info.plist + app.json). The dark palette existed but was locked off.
+    Owner checked screens on the simulator 2026-11-05.
+  - **Privacy policy names RevenueCat + Apple** (purchases section, service
+    providers, SDK statement, deletion paragraph) — closes the HB-7 reopen from
+    the billing work. Still update the App Store privacy label (Purchases →
+    Purchase History, linked to the user, not tracking).
+  - `mobile/` was a nested git repo with NO remote — folded into the main repo
+    so the app is on GitHub. Old history kept on the Mac at
+    `~/mobile-git-history-backup`.
+
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` ·
 `/me/deletion` (POST request, DELETE cancel) · `/habits*` ·
@@ -448,7 +473,7 @@ parse, log, summary, marketplace) · `/gamification/summary` ·
 `/health` · `/privacy` · `/support`
 
 ## Known pending items (open)
-1. Backend still has diagnostic `_log.warning` lines in `recognition.py` — remove before launch.
+1. ~~Diagnostic logging in `recognition.py`~~ **Resolved 2026-11-05:** the only remaining line is the 0-items warning, which is operational (runbook gotchas #6/#8 rely on it) and logs no user data — kept on purpose.
 2. DB uses `rds.force_ssl=0` (plaintext in-VPC) — re-enable TLS via SSL context in `database.py`.
 3. Reviewer bypass is a live backdoor — remove/rotate before public launch.
 4. `api.glpsteel.com` needs a stable route so the blue/green re-point step goes away
