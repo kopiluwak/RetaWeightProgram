@@ -18,7 +18,7 @@ from .. import couch as couch_logic
 from .. import custom_exercise as cx
 from ..config import Settings, get_settings
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import QuotaGuard, get_current_user, require_quota
 from ..engine import generate_program
 from ..exercises import LIBRARY
 from ..models import ExerciseClassifyCache, InventoryVersion, Program, User, UserHabits
@@ -78,10 +78,14 @@ async def generate(
     body: GenerateProgramIn,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    quota: QuotaGuard = Depends(require_quota("program_gen")),
 ):
     """Generate and persist a new active program; prior actives are superseded.
 
     Requires a confirmed inventory and completed onboarding (400 otherwise).
+
+    Metered: one program generation per call, spent only once the engine has
+    produced a plan. Unlimited for `pro` subscribers.
     """
     habits = (await db.execute(
         select(UserHabits).where(UserHabits.user_id == user.id)
@@ -103,6 +107,11 @@ async def generate(
                             "No confirmed equipment inventory yet — scan and confirm your equipment first")
 
     days = body.days_per_week or habits.days_per_week
+    # An explicit days-per-week choice is sticky: persist it so a later
+    # regeneration that omits the field (or a beginner's plan rebuild) keeps the
+    # schedule the user picked instead of snapping back to the onboarding answer.
+    if body.days_per_week:
+        habits.days_per_week = body.days_per_week
 
     if habits.gen_bodyweight_only:
         selected = []  # no equipment -> engine picks only bodyweight movements
@@ -116,6 +125,7 @@ async def generate(
     plan = generate_program(
         items, days, habits.session_minutes, _engine_experience(habits.experience)
     ).to_dict()
+    await quota.commit()  # generation succeeded — now it counts
 
     # Supersede prior active programs (one active program at a time).
     prior = (await db.execute(

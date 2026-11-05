@@ -60,6 +60,19 @@ class Settings(BaseSettings):
     bedrock_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
     bedrock_max_tokens: int = 1024
 
+    # --- Billing / StoreKit via RevenueCat (see app/billing.py) ---
+    # Mirrors the vision_provider pattern exactly: "stub" short-circuits every
+    # network call so the whole purchase -> quota flow is walkable offline with
+    # no RevenueCat account, and "revenuecat" is the production path.
+    billing_provider: str = "stub"  # stub | revenuecat
+    # Secret (server) API key, used ONLY for the server-side reconcile call
+    # GET /v1/subscribers/{app_user_id}. Never shipped to the device — the app
+    # gets the separate public SDK key. Empty = /billing/sync refuses to run.
+    revenuecat_secret_key: str = ""
+    # Shared secret RevenueCat sends in the webhook's Authorization header.
+    # Empty = the webhook endpoint rejects everything (fail closed).
+    revenuecat_webhook_secret: str = ""
+
     # --- Defaults for onboarding habits (spec onboarding decision) ---
     default_session_minutes: int = 60
     default_experience: str = "conservative"  # conservative | intermediate | advanced

@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings, get_settings
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import QuotaGuard, get_current_user, require_quota
 from ..models import (
     NutritionBadge,
     NutritionParseCache,
@@ -454,14 +454,19 @@ async def weight_history(days: int = Query(default=180, ge=1, le=730),
 @router.post("/pantry/scan", response_model=ScanOut)
 async def scan_pantry(images: list[UploadFile] = File(...),
                       user: User = Depends(get_current_user),
-                      settings: Settings = Depends(get_settings)):
+                      settings: Settings = Depends(get_settings),
+                      quota: QuotaGuard = Depends(require_quota("meal_scan"))):
     """Photos in -> draft item list out. Nothing is persisted here and the
-    images are discarded after the model call (module privacy promise)."""
+    images are discarded after the model call (module privacy promise).
+
+    Metered as a meal scan, spent only after the scanner returns (unlimited on
+    `pro`)."""
     if not images:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "At least one image required")
     raw = [await img.read() for img in images]
     scanner = build_pantry_scanner(settings)
     result = await scanner.scan(raw)
+    await quota.commit()  # scan succeeded — now it counts
     return ScanOut(items=result.items, recognizer=result.recognizer)
 
 
@@ -512,11 +517,15 @@ async def _pantry_dicts(db: AsyncSession, user_id: str) -> list[dict]:
 @router.post("/recipes/generate", response_model=RecipesOut)
 async def generate_recipes(body: GenerateRecipesIn, user: User = Depends(get_current_user),
                            db: AsyncSession = Depends(get_db),
-                           settings: Settings = Depends(get_settings)):
+                           settings: Settings = Depends(get_settings),
+                           quota: QuotaGuard = Depends(require_quota("meal_scan"))):
     """Generate 3-5 high-protein recipes honoring diet + restrictions.
 
     Profile restrictions always apply; the request may only add more. Awards
     the pantry_alchemist badge on the first pantry-based generation.
+
+    Metered as a meal scan, spent only once the engine returned recipes — the
+    502 below (empty batch) costs the user nothing.
     """
     prof = await _get_or_create_profile(db, user.id)
     pantry = await _pantry_dicts(db, user.id) if body.use_pantry else []
@@ -532,6 +541,7 @@ async def generate_recipes(body: GenerateRecipesIn, user: User = Depends(get_cur
     batch = await engine.recipes(prompt, body.count, vegan_hint=(diet == "vegan"))
     if not batch.recipes:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Recipe generation returned nothing — try again")
+    await quota.commit()  # generation succeeded — now it counts
 
     # Event badge: first recipes generated from a scanned pantry.
     new_badges: list[str] = []
@@ -548,8 +558,11 @@ async def generate_recipes(body: GenerateRecipesIn, user: User = Depends(get_cur
 @router.post("/recipes/adapt", response_model=RecipesOut)
 async def adapt_recipe(body: AdaptRecipeIn, user: User = Depends(get_current_user),
                        db: AsyncSession = Depends(get_db),
-                       settings: Settings = Depends(get_settings)):
-    """'Make it Vegan / Vegetarian' — rebuild one recipe with compliant proteins."""
+                       settings: Settings = Depends(get_settings),
+                       quota: QuotaGuard = Depends(require_quota("meal_scan"))):
+    """'Make it Vegan / Vegetarian' — rebuild one recipe with compliant proteins.
+
+    Metered as a meal scan (a full model call), spent only on success."""
     prof = await _get_or_create_profile(db, user.id)
     pantry = await _pantry_dicts(db, user.id)
     prompt = build_veganize_prompt(
@@ -560,14 +573,18 @@ async def adapt_recipe(body: AdaptRecipeIn, user: User = Depends(get_current_use
     batch = await engine.recipes(prompt, 1, vegan_hint=(body.mode == "vegan"))
     if not batch.recipes:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Adaptation failed — try again")
+    await quota.commit()  # adaptation succeeded — now it counts
     return RecipesOut(recipes=batch.recipes[:1], generator=batch.generator)
 
 
 @router.post("/recipes/surprise", response_model=DayPlan)
 async def surprise_me(user: User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_db),
-                      settings: Settings = Depends(get_settings)):
-    """Generate a full-day meal plan that sums to the user's protein target."""
+                      settings: Settings = Depends(get_settings),
+                      quota: QuotaGuard = Depends(require_quota("meal_scan"))):
+    """Generate a full-day meal plan that sums to the user's protein target.
+
+    Metered as a meal scan, spent only on success."""
     prof = await _get_or_create_profile(db, user.id)
     if not prof.protein_target_g:
         raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -581,6 +598,7 @@ async def surprise_me(user: User = Depends(get_current_user),
     plan = await engine.day_plan(prompt, prof.protein_target_g)
     if not plan.meals:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Plan generation returned nothing — try again")
+    await quota.commit()  # plan generation succeeded — now it counts
     already = await _earned_badges(db, user.id)
     if "surprise_seeker" not in already:
         await _award(db, user.id, ["surprise_seeker"])

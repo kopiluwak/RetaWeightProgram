@@ -13,6 +13,7 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -462,3 +463,78 @@ class ExerciseStatBin(Base):
     experience: Mapped[str] = mapped_column(String(20), nullable=False)
     days_per_week: Mapped[int] = mapped_column(Integer, nullable=False)
     observations: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+
+# ----------------------------------------------------------------------------
+# Monetization (StoreKit purchases via RevenueCat — see app/billing.py)
+# ----------------------------------------------------------------------------
+class Entitlement(Base):
+    """What one user has paid for, and what they have left. Server-authoritative.
+
+    The device NEVER decides whether a feature is unlocked: it renders what this
+    row says, and every metered endpoint checks it again. RevenueCat is the
+    source of truth for *purchases*; this row is the source of truth for
+    *consumption*, which RevenueCat knows nothing about.
+
+    Counter semantics (the arithmetic itself lives in app/billing.py):
+      * ``trial_ends_at`` is the deadline of the current ``steel_starter_unlock``
+        window. Starter scans left over when it lapses are forfeited — that is
+        what "5 scans + 7 meal scans within 7 days, whichever comes first" means.
+        The starter's 10 program generations are NOT forfeited with the window.
+      * Consumable packs never expire, so crediting one first clears a lapsed
+        window (billing.credit_pack) rather than letting the stale deadline eat
+        a purchase the user just made.
+      * ``pro`` makes meal scans and program generations unlimited while it is
+        active; equipment scans always come out of the counter, which is why
+        ``steel_equipment_pack_5`` still sells to a Pro subscriber.
+    """
+
+    __tablename__ = "entitlements"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    tier: Mapped[str] = mapped_column(String(16), default="free", nullable=False)  # free | starter | pro
+    pro_expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    equipment_scans_remaining: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    meal_scans_remaining: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Not in the original column list, but steel_program_pack_3 sells +3 program
+    # generations and they have to land somewhere countable.
+    program_gens_remaining: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    trial_ends_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # RevenueCat App User ID. We always set this to users.id (never the email —
+    # an App User ID is effectively public in the SDK payload).
+    revenuecat_app_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now, nullable=False
+    )
+
+
+class PurchaseEvent(Base):
+    """Append-only ledger of every purchase event we have acted on.
+
+    Exists for idempotency first and audit second. RevenueCat retries webhooks,
+    and /billing/sync deliberately races the webhook (the app calls it straight
+    after a purchase because webhooks lag), so the SAME event id will arrive
+    more than once. ``event_id`` is UNIQUE: the insert is what claims the event,
+    so a replay loses the race at the database rather than in application logic
+    and can never double-credit a consumable.
+
+    Rows are never updated or deleted, and cascade away with the account.
+    """
+
+    __tablename__ = "purchase_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # RevenueCat's event id (or a deterministic id we derive for a /billing/sync
+    # reconcile, so sync and webhook collide on the same purchase).
+    event_id: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    product_id: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    raw_payload: Mapped[dict] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), default=dict, nullable=False
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, nullable=False)

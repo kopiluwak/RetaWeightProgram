@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from ..config import Settings, get_settings
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import QuotaGuard, get_current_user, require_quota
 from ..equipment import is_valid_type
 from ..models import CaptureSession, EquipmentItem, InventoryVersion, User
 from ..recognition import build_recognizer
@@ -109,6 +109,7 @@ async def capture(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
+    quota: QuotaGuard = Depends(require_quota("equipment_scan")),
 ):
     """Run recognition on uploaded photos and return a DRAFT inventory version.
 
@@ -120,6 +121,11 @@ async def capture(
 
     Photos are persisted (and the flywheel record kept) only with explicit
     consent; otherwise they are processed in memory and discarded.
+
+    Metered: one equipment scan per call, in BOTH modes (a merge costs the same
+    Bedrock call as a full rescan). The scan is only spent once recognition has
+    actually returned — a Bedrock failure raises before the commit below and
+    costs the user nothing.
     """
     if not images:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "At least one image required")
@@ -130,6 +136,7 @@ async def capture(
 
     recognizer = build_recognizer(settings)
     result = await recognizer.recognize(raw)
+    await quota.commit()  # recognition succeeded — now it counts
 
     # Draft version (unconfirmed) from the recognition result.
     version = InventoryVersion(

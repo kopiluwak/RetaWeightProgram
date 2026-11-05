@@ -47,6 +47,14 @@ _COLUMN_BOOTSTRAP = [
     # Added 2026-08-18 (App Store 5.1.1(v) account deletion — grace window).
     # NULL = active account; set = purge scheduled. See app/deletion.py.
     "ALTER TABLE users ADD COLUMN deletion_requested_at TIMESTAMPTZ",
+    # Added 2026-08-19 (StoreKit monetization via RevenueCat — see app/billing.py).
+    # The two new tables (`entitlements`, `purchase_events`) are whole tables, so
+    # create_all makes them on boot and they need no ALTER here. These ALTERs
+    # exist for the redeploy case only: a task that booted an earlier build of
+    # this feature already has `entitlements`, and create_all would then silently
+    # skip the newer columns. Idempotent like every line above.
+    "ALTER TABLE entitlements ADD COLUMN program_gens_remaining INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE entitlements ADD COLUMN revenuecat_app_user_id VARCHAR(64)",
 ]
 
 

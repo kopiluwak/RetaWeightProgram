@@ -162,8 +162,9 @@ async def history(
         .options(selectinload(WorkoutSession.sets))
     )).scalars().all()
     return [
-        WorkoutHistoryItem(id=s.id, day_name=s.day_name, status=s.status,
-                           started_at=_iso(s.started_at), set_count=len(s.sets))
+        WorkoutHistoryItem(id=s.id, day_index=s.day_index, day_name=s.day_name,
+                           status=s.status, started_at=_iso(s.started_at),
+                           set_count=len(s.sets))
         for s in sessions
     ]
 

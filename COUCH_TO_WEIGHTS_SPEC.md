@@ -2,7 +2,8 @@
 
 Status: **APPROVED — backend implemented and deployed 2026-07-23; mobile
 (`CouchProgramScreen`) built and `tsc` clean but NOT yet in a shipped build.**
-Unchanged by the 2026-08-19 App Store hardening pass. Last updated 2026-08-19.
+Unchanged by the 2026-08-19 App Store hardening pass. Amended 2026-08-23 (§12).
+Last updated 2026-08-23.
 Read `PROJECT_STATE.md` + `OPERATIONS_RUNBOOK.md` first. This spec follows the
 same structure as `NEUTRON_SPEC.md`: locked decisions up front, then data model,
 API, engine integration, mobile, copy, testing, deploy.
@@ -344,3 +345,84 @@ dev build is enough to test (per runbook §B).
    catch up one tap at a time, never a +2 jump. (D6)
 5. **Relabel `conservative` → "Returning / cautious"** and add the `beginner` chip —
    confirmed fine to change. (§2)
+
+---
+
+## 12. Amendment 2026-08-23 — days/week, the muscle-group day picker, and day advance
+
+Two gaps found in use, both in the mobile layer. §§1-11 above are unchanged.
+
+**12a. The beginner could not set days per week.** D2 says "the beginner keeps
+their chosen 3/4/5-day schedule", and onboarding does ask. But the split picker
+was only ever built on `ProgramScreen` (§8 gave `CouchProgramScreen` a header,
+decision card and day tabs — no split control), and `App.tsx` routes a beginner
+to `CouchProgramScreen` until `couch.graduated`, so the control was unreachable
+for exactly the users D2 is about. `buildPlan()` compounded it by calling
+`ProgramApi.generate({})` with no day count.
+
+Fixed in two places on `CouchProgramScreen`:
+
+- the first-run **build screen** gets a "How many days a week?" chip row, seeded
+  from onboarding through a new `habitDays` prop (`me.habits.days_per_week`,
+  passed by `App.tsx`), and the build button reads "Build my N-day beginner plan";
+- the **Manage program** card gets a "Days per week" row mirroring
+  ProgramScreen's, routed through `confirmRegenerate(days)` — the confirm copy
+  says the ramp week and history survive, which is true: the regenerated program
+  is re-derived on read and `couch_unlocked` is clamped to the new `full` (§5).
+
+`POST /programs/generate` now also **persists** an explicit `days_per_week` onto
+`user_habits`, so a later regeneration that omits the field keeps the user's
+choice. Already bounded `ge=3, le=5` by `GenerateProgramIn`; no schema change.
+
+**12b. "I don't want legs today, I want arms."** Since the 2026-07-23 Push/Pull/
+Legs rework each day targets a distinct primary muscle, and the days are
+independent — the logger just takes a `dayIndex`, so training them out of order
+already worked. It was purely a labelling failure: both program screens rendered
+tabs reading "Day 1 / Day 2 / Day 3".
+
+The tabs are now `Chip`s labelled by muscle group, under a "Today's workout"
+heading and an explicit invitation to swap. New `dayShortLabel(name, index)` in
+`mobile/src/labels.ts` takes the text before the em dash of the engine's day
+names ("Push — Chest, Shoulders & Triceps" -> "Push"), passes short names through
+unchanged ("Shoulders & Arms"), and falls back to "Day N". `DAY_OPTIONS` moved to
+`labels.ts` so both screens share one list.
+
+**Deliberately NOT done:** no week-rotation state tracking which days the user
+has actually trained, and no on-the-fly "give me an arms session" generator
+outside the split. Both were considered; the labelling fix makes the existing
+behaviour discoverable without adding state that can drift from the ramp.
+
+**12c. Finishing a workout left the beginner on Day 1.** §8 gave
+`CouchProgramScreen` day tabs but no "where am I in the week" rule, so `load()`
+only ever clamped `activeDay` to the day count. `ProgramScreen` had grown the
+right behaviour inline during the 2026-08-05 usability pass — open the day AFTER
+the most recently completed session, wrapping — but a beginner never sees that
+screen, so returning from the logger always dropped them back on the first day.
+
+The rule now lives in `mobile/src/programDays.ts`:
+
+- `dayAfterLastCompleted(days, history)` — `(idx + 1) % days.length` for the
+  newest `status === "completed"` session, or `null` when there is nothing to go
+  on (no days, no completed session, or the logged day is not in this program).
+  `null` explicitly means "leave the current selection alone" — never guess.
+- `nextDayIndex(days)` — the best-effort async wrapper; a failed history call
+  never breaks the screen.
+
+Both program screens call it, so they cannot drift apart again.
+
+Matching prefers the session's `day_index` over the day NAME. That required a
+new response-only field on `GET /workouts/history` (`WorkoutHistoryItem.day_index`,
+read from the already-stored `workout_sessions.day_index` column — no DB or
+`_COLUMN_BOOTSTRAP` change). The name match is kept as the fallback, so the app
+behaves correctly against the CURRENTLY DEPLOYED backend, where the field is
+absent, and becomes exact after the next deploy. The fallback is sound because
+the engine's Push/Pull/Legs day names are distinct; it fails safe (`findIndex`
+returns -1 -> `null`) if the program was regenerated into a different split
+since that session.
+
+**Scope:** mobile is JS-only (no new deps) — `npx expo start` on the existing dev
+build is enough to test. Backend is one line in `routers/programs.py` plus the
+`day_index` field in `routers/workouts.py` + `schemas.py`; no DB or
+`_COLUMN_BOOTSTRAP` change. Verified `tsc --noEmit` clean, `py_compile` clean,
+`python3 -m tests.test_couch` 15/15. Still needs the runbook §B simulator pass in
+both themes.

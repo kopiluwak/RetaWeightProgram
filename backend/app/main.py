@@ -11,12 +11,24 @@ import contextlib
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from . import deletion
+from .billing import QuotaExhausted
 from .config import get_settings
 from .database import init_models
-from .routers import analytics, auth, gamification, inventory, nutrition, onboarding, programs, workouts
+from .routers import (
+    analytics,
+    auth,
+    billing,
+    gamification,
+    inventory,
+    nutrition,
+    onboarding,
+    programs,
+    workouts,
+)
 
 logging.basicConfig(level=logging.INFO)
 settings = get_settings()
@@ -62,6 +74,20 @@ app.include_router(workouts.router)
 app.include_router(analytics.router)
 app.include_router(nutrition.router)
 app.include_router(gamification.router)
+app.include_router(billing.router)
+
+
+@app.exception_handler(QuotaExhausted)
+async def quota_exhausted_handler(request: Request, exc: QuotaExhausted) -> JSONResponse:
+    """Turn an exhausted quota into the 402 the app keys its paywall off.
+
+    A dedicated handler rather than an HTTPException so the body is the
+    machine-readable object itself — `{"error", "kind", "paywall"}` — instead of
+    FastAPI's `{"detail": {...}}` envelope. The app intercepts 402 centrally
+    (mobile/src/api.ts) and routes to PaywallScreen with `paywall` naming the
+    product to present. See app/deps.py require_quota.
+    """
+    return JSONResponse(status_code=402, content=exc.body)
 
 
 @app.get("/health", tags=["meta"])

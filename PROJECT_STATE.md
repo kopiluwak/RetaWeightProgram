@@ -1,7 +1,7 @@
 # WeightProgram — Project State (handoff)
 
 One-page onboarding for a new thread. Read this + `OPERATIONS_RUNBOOK.md` before working.
-Last updated: 2026-08-19.
+Last updated: 2026-08-23.
 
 ## What it is
 A mobile app that photographs a user's weights/equipment, uses a vision LLM to
@@ -379,6 +379,61 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
     declare Contact Info → Phone as collected.
   - **All 7 hard blockers from the audit are now closed in code.** What's left
     before submission is operational, not code — see `APPSTORE_READINESS.md`.
+
+- **Beginner days/week, muscle-group day picker + day advance (2026-08-23, mobile + backend
+  built clean, NOT yet deployed/shipped):** two usability gaps closed, both
+  reported as "the beginner flow lost the days-per-week question" and "there's no
+  way to say I don't want legs today, I want arms".
+  - **Days per week was unreachable for beginners.** Onboarding asks it, but the
+    3/4/5 split picker lived ONLY on `ProgramScreen`, and a beginner in Couch mode
+    never sees that screen (`App.tsx` routes them to `CouchProgramScreen` until
+    `couch.graduated`). `CouchProgramScreen.buildPlan()` also called
+    `ProgramApi.generate({})` with no day count at all. Fixed on both surfaces:
+    a "How many days a week?" chip row on the beginner **build screen** (seeded
+    from onboarding via a new `habitDays` prop passed down from `App.tsx`), and a
+    "Days per week" row in the beginner **Manage program** card that mirrors
+    ProgramScreen's, behind the same regenerate confirm (reworded for the ramp:
+    "You stay at Week N and your workout history is kept"). `buildPlan` now takes
+    `{bodyweightOnly?, days?}` and always sends `days_per_week`.
+  - **Day tabs now name the muscle group.** Both `ProgramScreen` and
+    `CouchProgramScreen` rendered hand-rolled tabs reading "Day 1 / Day 2 / Day 3",
+    so the user could not tell which day was legs and which was arms — the swap
+    they wanted was already possible (days are independent; the logger takes a
+    `dayIndex`) but completely undiscoverable. Tabs are now `Chip`s labelled by
+    muscle group ("Push", "Pull", "Legs", "Shoulders & Arms", "Arms") under a
+    "Today's workout" heading with the line "Not feeling this one? Tap any muscle
+    group — you can train your days in any order." The day number moved into the
+    meta line under the day title. New `dayShortLabel(name, index)` in
+    `mobile/src/labels.ts` takes the text before the em dash of the engine's day
+    names, falling back to "Day N"; `DAY_OPTIONS` also moved there so both screens
+    share one list. The hand-rolled `tab`/`tabText` styles are gone.
+    **No backend change for the swap** — nothing about the program engine, the
+    ramp, or workout logging needed to move.
+  - **Backend (one small change):** `POST /programs/generate` now persists an
+    explicit `days_per_week` onto `user_habits`, so a later regeneration that
+    omits the field keeps the schedule the user picked instead of snapping back to
+    the onboarding answer. Already validated `ge=3, le=5` by `GenerateProgramIn`,
+    so no new validation. No schema/DB change.
+  - **Finishing a workout now advances the day in beginner mode too.**
+    `ProgramScreen.loadCurrent` had "open the day AFTER the last completed
+    session" inline since the usability pass; `CouchProgramScreen.load` never
+    did, so a beginner returning from the logger always landed back on Day 1 and
+    looked stuck. The rule moved into a shared `mobile/src/programDays.ts`
+    (`dayAfterLastCompleted` + the best-effort `nextDayIndex` wrapper) and both
+    screens now call it, so they can't drift apart again. Matching prefers the
+    session's `day_index` — a NEW field on `GET /workouts/history`
+    (`WorkoutHistoryItem.day_index`, sourced from the already-stored
+    `workout_sessions.day_index`; response-only, no DB change) — and falls back
+    to the old day-NAME match when the field is absent, so **the app works
+    against the currently deployed backend** and gets exact matching after the
+    next deploy. `null` from the helper means "leave the selection alone", never
+    a guess.
+  - Verified: `npx tsc --noEmit` clean; `python3 -m py_compile` clean on
+    `routers/programs.py`, `routers/workouts.py`, `schemas.py`;
+    `python3 -m tests.test_couch` 15/15 pass. Next: simulator pass
+    (runbook §B, both themes), then bump `ios.buildNumber` for TestFlight and
+    deploy the backend (runbook §A) so the day count sticks and history carries
+    `day_index`.
 
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` ·

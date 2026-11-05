@@ -298,6 +298,10 @@ class WorkoutSessionOut(BaseModel):
 
 class WorkoutHistoryItem(BaseModel):
     id: str
+    # Which program day this session was. The app uses it to open the NEXT day
+    # after a completed workout; it matched on `day_name` before this field
+    # existed, and still falls back to that against an older backend.
+    day_index: int
     day_name: str
     status: str
     started_at: str
