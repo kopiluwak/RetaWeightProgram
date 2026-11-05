@@ -293,6 +293,34 @@ eas-cli upgrade.
     (which otherwise OVERWRITES hand edits — re-check Info.plist after any
     prebuild).
 
+
+13. **Xcode 27 (new Mac mini, 2026-11-05) — three breaks, all fixed in the repo:**
+    - **No `Simulator.app`.** Xcode 27 replaced it with `DeviceHub.app`
+      (`/Applications/Xcode.app/Contents/Applications/DeviceHub.app`), so Expo
+      SDK 54's `npx expo run:ios` dies with "Can't determine id of Simulator app".
+      Workaround until the Expo SDK is upgraded — build/install/launch by hand:
+      ```bash
+      xcrun simctl boot "iPhone 17"; open /Applications/Xcode.app/Contents/Applications/DeviceHub.app
+      cd "/Volumes/2T_Media/Documents/WeightProgram/WeightProgram/mobile/ios" && pod install
+      xcodebuild -workspace WeightProgram.xcworkspace -scheme WeightProgram -configuration Debug \
+        -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17' \
+        -derivedDataPath ~/wp-derived build 2>&1 | grep -E "error:|BUILD (SUCCEEDED|FAILED)"
+      xcrun simctl install booted ~/wp-derived/Build/Products/Debug-iphonesimulator/WeightProgram.app
+      (cd .. && npx expo start --dev-client)          # leave running
+      xcrun simctl launch booted com.weightprogram.app # second terminal
+      ```
+      For JS-only changes just reload in the app; rebuild only after native changes.
+    - **Pods below iOS 15 are a hard error.** `ios/Podfile` `post_install` now
+      raises every pod target to the app minimum (15.1).
+    - **UIScene lifecycle is mandatory** — without it the app crashes at launch in
+      `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`.
+      `Info.plist` now has `UIApplicationSceneManifest` and `AppDelegate.swift`
+      has a `SceneDelegate` that creates the window and forwards deep links.
+    All three are hand edits to the bare `ios/` project: **`npx expo prebuild
+    --clean` would wipe them** (same trap as gotcha #12). Also: `ios/.xcode.env.local`
+    is per-machine (it held the old Mac's Node path) and is now gitignored.
+    `scripts/new-mac-check.sh` checks the rest of a fresh-Mac setup.
+
 ---
 
 ## E. Pre-public-launch checklist (open items)
