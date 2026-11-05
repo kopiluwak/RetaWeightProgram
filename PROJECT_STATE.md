@@ -435,7 +435,13 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
     deploy the backend (runbook §A) so the day count sticks and history carries
     `day_index`.
 
-- **New Mac + Xcode 27 + pre-deploy fixes (2026-11-05, NOT yet deployed/shipped):**
+- **BACKEND DEPLOYED 2026-11-05 19:32 UTC** — everything backend-side listed above
+  (billing, account deletion, Couch/day_index/days-per-week, add-exercise, name,
+  privacy rewrite, etc.) is now LIVE at api.glpsteel.com, with `BILLING_ENFORCE`
+  off and `BILLING_PROVIDER` still `stub` (purchase sync refuses with 503 by
+  design). Reviewer bypass is currently NOT armed. The mobile side of all of it
+  is still unshipped — next TestFlight build carries it.
+- **New Mac + Xcode 27 + pre-deploy fixes (2026-11-05; backend part deployed, app NOT yet shipped):**
   project moved to a new Mac mini (Xcode 27.2, iOS 27.2 simulator). Runs on the
   simulator and signs in against prod. Changes:
   - **Starter unlock now includes 10 program builds** (`STARTER_PROGRAM_GENS`
