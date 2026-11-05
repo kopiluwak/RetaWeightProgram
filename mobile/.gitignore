@@ -1,0 +1,10 @@
+node_modules/
+.expo/
+._*
+.DS_Store
+
+# local EAS build outputs (20-30 MB each)
+*.ipa
+
+# per-machine Xcode env
+ios/.xcode.env.local*

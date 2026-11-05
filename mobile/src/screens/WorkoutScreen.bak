@@ -1,0 +1,285 @@
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
+import * as Haptics from "expo-haptics";
+import { Program, ProgramExercise, ProgressionSuggestion, WorkoutApi, WorkoutSession } from "../api";
+
+type Phase = "readiness" | "logging" | "done";
+
+export default function WorkoutScreen({
+  program,
+  dayIndex,
+  onDone,
+}: {
+  program: Program;
+  dayIndex: number;
+  onDone: () => void;
+}) {
+  const day = program.days[dayIndex];
+  const [phase, setPhase] = useState<Phase>("readiness");
+  const [session, setSession] = useState<WorkoutSession | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [lastPerf, setLastPerf] = useState<Record<string, { weight: number | null; reps: number; rir: number }>>({});
+  const [suggestions, setSuggestions] = useState<ProgressionSuggestion[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Rest timer — one setTimeout per second, keyed on the value so it always
+  // re-runs; pings + clears itself at 0.
+  const [restLeft, setRestLeft] = useState<number | null>(null);
+  const beep = useAudioPlayer(require("../../assets/beep.wav"));
+
+  // Let the beep sound even when the phone's ringer is on silent (gym mode).
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+  }, []);
+
+  function playPing() {
+    try {
+      beep.seekTo(0);
+      beep.play();
+    } catch {
+      /* audio is best-effort */
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }
+
+  useEffect(() => {
+    if (restLeft === null) return;
+    if (restLeft <= 0) {
+      playPing(); // natural completion -> alert
+      setRestLeft(null);
+      return;
+    }
+    const id = setTimeout(() => setRestLeft((r) => (r === null ? null : r - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [restLeft]);
+
+  function startRest(seconds: number) {
+    setRestLeft(seconds);
+  }
+
+  async function begin(readiness: number) {
+    setBusy(true);
+    setError(null);
+    try {
+      const [s, last] = await Promise.all([
+        WorkoutApi.start(dayIndex, readiness, program.id),
+        WorkoutApi.lastPerformance().catch(() => ({})), // pre-fill is best-effort
+      ]);
+      setSession(s);
+      setLastPerf(last);
+      setPhase("logging");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not start workout");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function logSet(ex: ProgramExercise, weight: number | null, reps: number, rir: number) {
+    if (!session) return;
+    const setNumber = (counts[ex.name] ?? 0) + 1;
+    try {
+      const s = await WorkoutApi.logSet(session.id, {
+        exercise_name: ex.name, set_number: setNumber, reps, rir, weight, reps_range: ex.reps,
+      });
+      setSession(s);
+      setCounts((c) => ({ ...c, [ex.name]: setNumber }));
+      Keyboard.dismiss(); // so the bottom rest bar isn't hidden behind the keyboard
+      startRest(ex.rest_seconds && ex.rest_seconds > 0 ? ex.rest_seconds : 90);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not log set");
+    }
+  }
+
+  async function finish() {
+    if (!session) return;
+    setBusy(true);
+    try {
+      const s = await WorkoutApi.finish(session.id);
+      setSuggestions(s.suggestions);
+      setPhase("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not finish");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (phase === "readiness") {
+    return (
+      <ScrollView contentContainerStyle={styles.center}>
+        <Text style={styles.title}>{day.name}</Text>
+        <Text style={styles.subtitle}>How's your energy today? This tunes how hard to push.</Text>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Pressable key={n} style={styles.readinessChip} disabled={busy} onPress={() => begin(n)}>
+            <Text style={styles.readinessText}>
+              {n} — {["Wiped", "Low", "OK", "Good", "Great"][n - 1]}
+            </Text>
+          </Pressable>
+        ))}
+        {busy ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Pressable onPress={onDone}><Text style={styles.link}>Cancel</Text></Pressable>
+      </ScrollView>
+    );
+  }
+
+  if (phase === "done") {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Session logged</Text>
+        <Text style={styles.subtitle}>Next-time suggestions, based on what you logged:</Text>
+        {suggestions.map((s, i) => (
+          <View key={i} style={styles.suggestion}>
+            <Text style={styles.sugEx}>{s.exercise_name}</Text>
+            <Text style={[styles.sugAction, actionStyle(s.action)]}>{labelFor(s.action)}</Text>
+            <Text style={styles.sugMsg}>{s.message}</Text>
+          </View>
+        ))}
+        <Pressable style={styles.button} onPress={onDone}><Text style={styles.buttonText}>Done</Text></Pressable>
+      </ScrollView>
+    );
+  }
+
+  // logging
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>{day.name}</Text>
+        <Text style={styles.subtitle}>Log each set. RIR = reps you had left in the tank.</Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <View style={[styles.restInline, restLeft !== null && styles.restInlineActive]}>
+          <Text style={styles.restInlineText}>
+            {restLeft !== null
+              ? `Rest: ${Math.floor(restLeft / 60)}:${String(restLeft % 60).padStart(2, "0")}`
+              : "Rest timer idle — log a set to start"}
+          </Text>
+          {restLeft !== null ? (
+            <>
+              <Pressable style={styles.restBtn} onPress={() => setRestLeft((r) => (r ?? 0) + 30)}>
+                <Text style={styles.restBtnText}>+30s</Text>
+              </Pressable>
+              <Pressable style={styles.restBtn} onPress={() => setRestLeft(null)}>
+                <Text style={styles.restBtnText}>Skip</Text>
+              </Pressable>
+            </>
+          ) : null}
+        </View>
+
+        {day.exercises.map((ex, i) => (
+          <ExerciseLogger
+            key={`${ex.name}-${i}`}
+            ex={ex}
+            logged={counts[ex.name] ?? 0}
+            last={lastPerf[ex.name]}
+            onLog={(w, reps, rir) => logSet(ex, w, reps, rir)}
+          />
+        ))}
+
+        <Pressable style={[styles.button, busy && styles.disabled]} disabled={busy} onPress={finish}>
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Finish workout</Text>}
+        </Pressable>
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function ExerciseLogger({
+  ex,
+  logged,
+  last,
+  onLog,
+}: {
+  ex: ProgramExercise;
+  logged: number;
+  last?: { weight: number | null; reps: number; rir: number };
+  onLog: (weight: number | null, reps: number, rir: number) => void;
+}) {
+  // Pre-fill from last session's logged values for this exercise (faster entry).
+  const [weight, setWeight] = useState(last?.weight != null ? String(last.weight) : "");
+  const [reps, setReps] = useState(last?.reps != null ? String(last.reps) : "");
+  const [rir, setRir] = useState(last?.rir != null ? String(last.rir) : "2");
+
+  const canLog = reps.trim() !== "";
+
+  return (
+    <View style={styles.exCard}>
+      <Text style={styles.exName}>{ex.name}</Text>
+      <Text style={styles.exTarget}>
+        Target {ex.sets} × {ex.reps} · RIR {ex.rir} · rest {ex.rest_seconds}s · {logged}/{ex.sets} done
+      </Text>
+      {last ? (
+        <Text style={styles.lastNote}>
+          Last time: {last.weight != null ? `${last.weight} lb × ` : ""}{last.reps} reps @ RIR {last.rir}
+        </Text>
+      ) : null}
+      <View style={styles.inputs}>
+        <Mini label="Weight" value={weight} onChange={setWeight} />
+        <Mini label="Reps" value={reps} onChange={setReps} />
+        <Mini label="RIR" value={rir} onChange={setRir} />
+        <Pressable
+          style={[styles.logBtn, !canLog && styles.disabled]}
+          disabled={!canLog}
+          onPress={() =>
+            onLog(weight.trim() === "" ? null : Number(weight), parseInt(reps, 10) || 0, parseInt(rir, 10) || 0)
+          }
+        >
+          <Text style={styles.logBtnText}>Log set</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function Mini({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={styles.mini}>
+      <Text style={styles.miniLabel}>{label}</Text>
+      <TextInput style={styles.miniInput} value={value} onChangeText={onChange} keyboardType="numeric" />
+    </View>
+  );
+}
+
+function labelFor(a: string) {
+  return a === "increase_load" ? "↑ Add load" : a === "reduce_load" ? "↓ Reduce load" : "→ Hold";
+}
+function actionStyle(a: string) {
+  return a === "increase_load" ? { color: "#0a7d2c" } : a === "reduce_load" ? { color: "#c0392b" } : { color: "#555" };
+}
+
+const styles = StyleSheet.create({
+  center: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 10 },
+  container: { padding: 20, gap: 12 },
+  title: { fontSize: 24, fontWeight: "700" },
+  subtitle: { fontSize: 13, color: "#555" },
+  readinessChip: { borderWidth: 1, borderColor: "#111", borderRadius: 10, padding: 14, alignItems: "center", marginTop: 6 },
+  readinessText: { fontSize: 15, fontWeight: "600" },
+  exCard: { borderWidth: 1, borderColor: "#e3e3e3", borderRadius: 12, padding: 12, gap: 8 },
+  exName: { fontSize: 15, fontWeight: "700" },
+  exTarget: { fontSize: 12, color: "#777" },
+  lastNote: { fontSize: 12, color: "#1769ff", fontWeight: "600" },
+  inputs: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  mini: { flex: 1 },
+  miniLabel: { fontSize: 11, color: "#888", marginBottom: 3 },
+  miniInput: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 8, fontSize: 15 },
+  logBtn: { backgroundColor: "#111", borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12 },
+  logBtnText: { color: "#fff", fontWeight: "600" },
+  disabled: { opacity: 0.4 },
+  button: { backgroundColor: "#0a7d2c", borderRadius: 10, padding: 16, alignItems: "center", marginTop: 12 },
+  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  link: { color: "#1769ff", fontWeight: "600", textAlign: "center", marginTop: 14 },
+  error: { color: "#c00" },
+  suggestion: { borderLeftWidth: 3, borderLeftColor: "#ddd", paddingLeft: 12, marginTop: 10 },
+  sugEx: { fontSize: 15, fontWeight: "600" },
+  sugAction: { fontSize: 13, fontWeight: "700", marginTop: 2 },
+  sugMsg: { fontSize: 13, color: "#555", marginTop: 2 },
+  restInline: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#555", borderRadius: 10, padding: 12 },
+  restInlineActive: { backgroundColor: "#0a7d2c" },
+  restInlineText: { flex: 1, fontSize: 16, fontWeight: "700", color: "#fff" },
+  restBtn: { backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14 },
+  restBtnText: { color: "#fff", fontWeight: "600" },
+});

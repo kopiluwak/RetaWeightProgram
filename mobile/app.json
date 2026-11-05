@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "WeightProgram",
+    "slug": "weightprogram",
+    "version": "0.1.0",
+    "icon": "./assets/icons/icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "icon": {
+        "light": "./assets/icons/ios-light.png",
+        "dark": "./assets/icons/ios-dark.png",
+        "tinted": "./assets/icons/ios-tinted.png"
+      },
+      "supportsTablet": true,
+      "bundleIdentifier": "com.weightprogram.app",
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.weightprogram.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow WeightProgram to use photos from your library instead of the camera, to identify your gym equipment or the food in your kitchen. Kitchen photos are never stored.",
+          "cameraPermission": "Allow WeightProgram to use the camera to photograph your gym equipment and your kitchen or fridge. Photos are analysed to identify equipment and food; kitchen photos are never stored."
+        }
+      ],
+      "expo-asset",
+      "expo-audio",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow WeightProgram to use the microphone so you can log meals by voice.",
+          "speechRecognitionPermission": "Allow WeightProgram to transcribe your speech on this device to log what you ate."
+        }
+      ],
+      "expo-sqlite"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a7bf2df0-e4a5-4ca1-ac62-39b19ca49fca"
+      }
+    }
+  }
+}
