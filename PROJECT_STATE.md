@@ -1,7 +1,7 @@
 # WeightProgram — Project State (handoff)
 
 One-page onboarding for a new thread. Read this + `OPERATIONS_RUNBOOK.md` before working.
-Last updated: 2026-11-05.
+Last updated: 2026-11-16.
 
 ## What it is
 A mobile app that photographs a user's weights/equipment, uses a vision LLM to
@@ -465,6 +465,22 @@ with progression feedback. React Native (Expo) app + FastAPI backend on AWS.
   - `mobile/` was a nested git repo with NO remote — folded into the main repo
     so the app is on GitHub. Old history kept on the Mac at
     `~/mobile-git-history-backup`.
+
+- **Build verified + release prep (2026-11-16; app NOT yet shipped):** full clean
+  simulator build on the Mac mini via the new one-shot `scripts/sim-build.sh`
+  (toolchain check → npm install → expo check → tsc → pod install → xcodebuild →
+  install → Metro; logs to gitignored `build-logs/`). Owner signed in with an email
+  code against prod. Node is 26 on this Mac — outside Expo SDK 54's tested 20/22,
+  but the build and Metro work; `brew install node@22` is the fallback if that changes.
+  - `expo` 54.0.35 → ~54.0.37 and `expo-asset` → ~12.0.14 (the two patch
+    mismatches `expo install --check` reported).
+  - **Version 0.1.0 → 1.0.0** in `app.json`, `package.json` and
+    `ios/WeightProgram/Info.plist` (closes SF-6).
+  - **`mobile/ios/` is now tracked in git** (closes SF-9). Root `.gitignore` used to
+    exclude it, so the Xcode 27 hand edits (SceneDelegate, Podfile post_install,
+    Info.plist strings) had no backup — and since `mobile/` was folded into this repo
+    that rule would also have applied to EAS uploads. Only `Pods/`, `build/`,
+    `.xcode.env.local` and `xcuserdata` stay ignored.
 
 ## API surface (all under https://api.glpsteel.com)
 `/auth/*` (request-otp, verify-otp, refresh, logout) · `/me` ·

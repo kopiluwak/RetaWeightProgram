@@ -14,7 +14,11 @@ mobile/node_modules/
 mobile/.expo/
 mobile/dist/
 mobile/web-build/
-mobile/ios/
+# mobile/ios/ IS tracked (bare project; hand edits live there) — only generated parts ignored
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/.xcode.env.local*
+**/xcuserdata/
 mobile/android/
 npm-debug.*
 *.log
@@ -29,3 +33,6 @@ npm-debug.*
 ._*
 .DS_Store
 backend/.venv/
+
+# local build logs (scripts/sim-build.sh)
+build-logs/
